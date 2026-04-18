@@ -52,6 +52,12 @@ class DevServiceProvider extends ServiceProvider
             });
         }
 
+        // API Route für Error Ingest (immer laden, auch ohne UI-Modul)
+        \Illuminate\Support\Facades\Route::domain(parse_url(config('app.url'), PHP_URL_HOST))
+            ->middleware(['api'])
+            ->prefix('api')
+            ->group(__DIR__.'/../routes/api.php');
+
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
         $this->publishes([

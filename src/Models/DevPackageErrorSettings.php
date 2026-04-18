@@ -27,6 +27,7 @@ class DevPackageErrorSettings extends Model
         'dev_package_id',
         'team_id',
         'enabled',
+        'ingest_token',
         'capture_console_errors',
         'capture_codes',
         'priority_mapping',
@@ -100,6 +101,29 @@ class DevPackageErrorSettings extends Model
         $mapping = $this->priority_mapping ?? self::DEFAULT_PRIORITY_MAPPING;
 
         return $mapping[(string) $code] ?? 'normal';
+    }
+
+    /**
+     * Generiert einen neuen Ingest-Token
+     */
+    public function generateToken(): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $this->update(['ingest_token' => $token]);
+
+        return $token;
+    }
+
+    /**
+     * Gibt die vollständige Ingest-URL zurück
+     */
+    public function getIngestUrl(): ?string
+    {
+        if (!$this->ingest_token) {
+            return null;
+        }
+
+        return rtrim(config('app.url'), '/') . '/api/dev/errors/ingest/' . $this->ingest_token;
     }
 
     public function getCaptureCodes(): array

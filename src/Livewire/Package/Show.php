@@ -81,6 +81,16 @@ class Show extends Component
         $this->showErrorSettings = false;
     }
 
+    public function generateIngestToken(): void
+    {
+        if (!$this->errorSettings) {
+            return;
+        }
+
+        $this->errorSettings->generateToken();
+        $this->errorSettings->refresh();
+    }
+
     public function toggleHttpCode(int $code): void
     {
         if (!$this->errorSettings) {
