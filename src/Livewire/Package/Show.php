@@ -6,6 +6,9 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use Platform\Dev\Models\DevPackage;
 use Platform\Dev\Models\DevIssue;
+use Platform\Integrations\Models\IntegrationGithubCommit;
+use Platform\Integrations\Models\IntegrationGithubPullRequest;
+use Platform\Integrations\Models\IntegrationGithubRepo;
 
 class Show extends Component
 {
@@ -67,25 +70,66 @@ class Show extends Component
             ->orderBy('order')
             ->get();
 
-        $totalOpen = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $this->package->id))
-            ->where('status', 'open')
-            ->count();
+        $packageIssues = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $this->package->id));
 
-        $totalDone = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $this->package->id))
-            ->where('is_done', true)
-            ->count();
-
-        $totalOverdue = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $this->package->id))
+        $totalOpen = (clone $packageIssues)->where('status', 'open')->count();
+        $totalDone = (clone $packageIssues)->where('is_done', true)->count();
+        $totalOverdue = (clone $packageIssues)
             ->where('status', 'open')
             ->whereNotNull('due_date')
             ->where('due_date', '<', now())
             ->count();
+        $totalHighPriority = (clone $packageIssues)->where('status', 'open')->where('priority', 'high')->count();
+
+        // Recent open issues for this package
+        $recentIssues = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $this->package->id))
+            ->where('status', 'open')
+            ->with(['board', 'userInCharge'])
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        // Recently completed
+        $recentlyDone = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $this->package->id))
+            ->where('is_done', true)
+            ->with(['board'])
+            ->orderByDesc('done_at')
+            ->limit(5)
+            ->get();
+
+        // GitHub data for this package
+        $repoIds = collect();
+        if ($this->package->github_repo_full_name) {
+            $repoIds = IntegrationGithubRepo::where('full_name', $this->package->github_repo_full_name)
+                ->where('is_active', true)
+                ->pluck('id');
+        }
+
+        $recentCommits = $repoIds->isNotEmpty()
+            ? IntegrationGithubCommit::whereIn('repo_id', $repoIds)
+                ->orderByDesc('committed_at')
+                ->limit(15)
+                ->get()
+            : collect();
+
+        $openPullRequests = $repoIds->isNotEmpty()
+            ? IntegrationGithubPullRequest::whereIn('repo_id', $repoIds)
+                ->where('state', 'open')
+                ->orderByDesc('github_created_at')
+                ->limit(10)
+                ->get()
+            : collect();
 
         return view('dev::livewire.package.show', [
             'boards' => $boards,
             'totalOpen' => $totalOpen,
             'totalDone' => $totalDone,
             'totalOverdue' => $totalOverdue,
+            'totalHighPriority' => $totalHighPriority,
+            'recentIssues' => $recentIssues,
+            'recentlyDone' => $recentlyDone,
+            'recentCommits' => $recentCommits,
+            'openPullRequests' => $openPullRequests,
         ])->layout('platform::layouts.app');
     }
 }
