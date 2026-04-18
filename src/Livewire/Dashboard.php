@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Auth;
 use Platform\Dev\Models\DevPackage;
 use Platform\Dev\Models\DevIssue;
 use Platform\Dev\Services\DevPackageService;
+use Platform\Integrations\Models\IntegrationGithubCommit;
+use Platform\Integrations\Models\IntegrationGithubPullRequest;
+use Platform\Integrations\Models\IntegrationGithubRepo;
 
 class Dashboard extends Component
 {
@@ -139,6 +142,29 @@ class Dashboard extends Component
             ];
         }
 
+        // GitHub data: recent commits + open PRs across all team packages
+        $repoFullNames = $packages->pluck('github_repo_full_name')->filter()->values();
+        $repoIds = $repoFullNames->isNotEmpty()
+            ? IntegrationGithubRepo::whereIn('full_name', $repoFullNames)->where('is_active', true)->pluck('id')
+            : collect();
+
+        $recentCommits = $repoIds->isNotEmpty()
+            ? IntegrationGithubCommit::whereIn('repo_id', $repoIds)
+                ->with('repo')
+                ->orderByDesc('committed_at')
+                ->limit(15)
+                ->get()
+            : collect();
+
+        $openPullRequests = $repoIds->isNotEmpty()
+            ? IntegrationGithubPullRequest::whereIn('repo_id', $repoIds)
+                ->where('state', 'open')
+                ->with('repo')
+                ->orderByDesc('github_created_at')
+                ->limit(10)
+                ->get()
+            : collect();
+
         $availableRepos = $this->showActivateModal ? $this->getAvailableRepos() : collect();
 
         return view('dev::livewire.dashboard', [
@@ -150,6 +176,8 @@ class Dashboard extends Component
             'totalHighPriority' => $totalHighPriority,
             'recentIssues' => $recentIssues,
             'recentlyDone' => $recentlyDone,
+            'recentCommits' => $recentCommits,
+            'openPullRequests' => $openPullRequests,
             'packageStats' => $packageStats,
             'availableRepos' => $availableRepos,
         ])->layout('platform::layouts.app');
