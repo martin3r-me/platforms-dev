@@ -10,10 +10,15 @@
             ['label' => $board->name],
         ]">
             <x-slot name="left">
-                <x-ui-button variant="ghost" size="sm" x-data @click="$dispatch('open-modal-board-settings', { boardId: {{ $board->id }} })">
-                    @svg('heroicon-o-cog-6-tooth', 'w-4 h-4')
-                    <span>Einstellungen</span>
-                </x-ui-button>
+                @foreach($allBoards as $b)
+                    <a href="{{ route('dev.packages.boards.show', [$package, $b]) }}" wire:navigate>
+                        <x-ui-button variant="{{ $b->id === $board->id ? 'primary' : 'ghost' }}" size="sm">
+                            @svg('heroicon-o-view-columns', 'w-4 h-4')
+                            <span>{{ $b->name }}</span>
+                            <span class="ml-1 opacity-60">({{ $b->open_issues_count }})</span>
+                        </x-ui-button>
+                    </a>
+                @endforeach
             </x-slot>
             <x-ui-button variant="ghost" size="sm" wire:click="createBoardSlot">
                 @svg('heroicon-o-square-2-stack', 'w-4 h-4')

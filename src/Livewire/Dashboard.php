@@ -73,12 +73,10 @@ class Dashboard extends Component
         try {
             $user = Auth::user();
 
-            // Already linked repo IDs in this team
             $linkedRepoIds = DevPackage::where('team_id', $user->currentTeam->id)
                 ->whereNotNull('github_repo_id')
                 ->pluck('github_repo_id');
 
-            // User's synced GitHub repos (same pattern as Helpdesk)
             return \Platform\Integrations\Models\IntegrationsGithubRepository::query()
                 ->where('user_id', $user->id)
                 ->whereNotIn('id', $linkedRepoIds)
@@ -96,15 +94,39 @@ class Dashboard extends Component
 
         $packages = DevPackage::where('team_id', $team->id)
             ->active()
-            ->withCount(['boards', 'discussions'])
             ->orderBy('order')
             ->get();
 
         $totalPackages = $packages->count();
-        $totalOpenIssues = DevIssue::whereHas('board.package', fn ($q) => $q->where('team_id', $team->id)->where('status', 'active'))
-            ->where('status', 'open')
-            ->count();
 
+        $teamIssues = DevIssue::whereHas('board.package', fn ($q) => $q->where('team_id', $team->id)->where('status', 'active'));
+
+        $totalOpen = (clone $teamIssues)->where('status', 'open')->count();
+        $totalDone = (clone $teamIssues)->where('is_done', true)->count();
+        $totalOverdue = (clone $teamIssues)
+            ->where('status', 'open')
+            ->whereNotNull('due_date')
+            ->where('due_date', '<', now())
+            ->count();
+        $totalHighPriority = (clone $teamIssues)->where('status', 'open')->where('priority', 'high')->count();
+
+        // Recent open issues
+        $recentIssues = DevIssue::whereHas('board.package', fn ($q) => $q->where('team_id', $team->id)->where('status', 'active'))
+            ->where('status', 'open')
+            ->with(['board.package', 'userInCharge', 'createdBy'])
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        // Recently completed
+        $recentlyDone = DevIssue::whereHas('board.package', fn ($q) => $q->where('team_id', $team->id)->where('status', 'active'))
+            ->where('is_done', true)
+            ->with(['board.package', 'userInCharge'])
+            ->orderByDesc('done_at')
+            ->limit(5)
+            ->get();
+
+        // Per-package stats
         $packageStats = [];
         foreach ($packages as $package) {
             $openFeatures = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $package->id)->where('type', 'feature'))
@@ -122,7 +144,12 @@ class Dashboard extends Component
         return view('dev::livewire.dashboard', [
             'packages' => $packages,
             'totalPackages' => $totalPackages,
-            'totalOpenIssues' => $totalOpenIssues,
+            'totalOpen' => $totalOpen,
+            'totalDone' => $totalDone,
+            'totalOverdue' => $totalOverdue,
+            'totalHighPriority' => $totalHighPriority,
+            'recentIssues' => $recentIssues,
+            'recentlyDone' => $recentlyDone,
             'packageStats' => $packageStats,
             'availableRepos' => $availableRepos,
         ])->layout('platform::layouts.app');

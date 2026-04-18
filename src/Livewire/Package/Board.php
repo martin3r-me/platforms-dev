@@ -217,9 +217,15 @@ class Board extends Component
             ->filter(fn ($g) => $g->isDoneGroup ?? false)
             ->sum(fn ($g) => $g->tasks->count());
 
+        $allBoards = $this->package->boards()
+            ->withCount(['issues as open_issues_count' => fn ($q) => $q->where('status', 'open')])
+            ->orderBy('order')
+            ->get();
+
         return view('dev::livewire.package.board', [
             'openCount' => $openCount,
             'doneCount' => $doneCount,
+            'allBoards' => $allBoards,
         ])->layout('platform::layouts.app');
     }
 }

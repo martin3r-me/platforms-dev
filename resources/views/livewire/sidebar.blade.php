@@ -14,20 +14,14 @@
 
     {{-- Active Packages --}}
     @if($activePackages->isNotEmpty())
-        @foreach($activePackages as $package)
-            <x-ui-sidebar-list :label="$package->name">
+        <x-ui-sidebar-list label="Packages">
+            @foreach($activePackages as $package)
                 <x-ui-sidebar-item :href="route('dev.packages.show', $package)">
                     @svg($package->icon ?? 'heroicon-o-cube', 'w-4 h-4 text-[var(--ui-secondary)]')
-                    <span class="ml-2 text-sm truncate">Übersicht</span>
+                    <span class="ml-2 text-sm truncate">{{ $package->name }}</span>
                 </x-ui-sidebar-item>
-                @foreach($package->boards as $board)
-                    <x-ui-sidebar-item :href="route('dev.packages.boards.show', [$package, $board])">
-                        @svg('heroicon-o-view-columns', 'w-4 h-4 text-[var(--ui-muted)]')
-                        <span class="ml-2 text-sm truncate">{{ $board->name }}</span>
-                    </x-ui-sidebar-item>
-                @endforeach
-            </x-ui-sidebar-list>
-        @endforeach
+            @endforeach
+        </x-ui-sidebar-list>
     @endif
 
     {{-- Archived --}}
