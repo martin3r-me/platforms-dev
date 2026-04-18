@@ -104,39 +104,29 @@
         </x-ui-page-sidebar>
     </x-slot>
 
-    <!-- Kanban-Board (Planner-kompatibel) -->
+    <!-- Kanban-Board -->
     <x-ui-kanban-container class="h-full" sortable="updateSlotOrder" sortable-group="updateIssueOrder">
-		{{-- Mittlere Spalten (scrollable) --}}
 		@foreach($groups->filter(fn ($g) => !($g->isDoneGroup ?? false)) as $column)
-            @php $isBacklog = $column->isBacklog ?? false; @endphp
 			<x-ui-kanban-column :sortable-id="$column->id" :scrollable="true">
                 <x-slot name="title">
                     <span class="flex items-center gap-1.5">
                         {{ $column->label ?? $column->name ?? 'Spalte' }}
+                        <span class="text-xs text-[var(--ui-muted)] font-normal">({{ $column->tasks->count() }})</span>
                     </span>
                 </x-slot>
 				<x-slot name="headerActions">
-                    @if(!$isBacklog)
-                        <button
-                            wire:click="createIssue('{{ $column->id }}')"
-                            class="text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors"
-                            title="Neues Issue">
-                            @svg('heroicon-o-plus-circle', 'w-4 h-4')
-                        </button>
-                        <button
-                            @click="$dispatch('open-modal-board-slot-settings', { boardSlotId: {{ $column->id }} })"
-                            class="text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors"
-                            title="Einstellungen">
-                            @svg('heroicon-o-cog-6-tooth', 'w-4 h-4')
-                        </button>
-                    @else
-                        <button
-                            wire:click="createIssue(null)"
-                            class="text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors"
-                            title="Issue in Backlog erstellen">
-                            @svg('heroicon-o-plus-circle', 'w-4 h-4')
-                        </button>
-                    @endif
+                    <button
+                        wire:click="createIssue('{{ $column->id }}')"
+                        class="text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors"
+                        title="Neues Issue">
+                        @svg('heroicon-o-plus-circle', 'w-4 h-4')
+                    </button>
+                    <button
+                        wire:click="openSlotSettings({{ $column->id }})"
+                        class="text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors"
+                        title="Spalte bearbeiten">
+                        @svg('heroicon-o-cog-6-tooth', 'w-4 h-4')
+                    </button>
 				</x-slot>
 
 				@foreach($column->tasks as $issue)
@@ -145,7 +135,7 @@
 			</x-ui-kanban-column>
 		@endforeach
 
-		{{-- ERLEDIGT Spalte (muted, nicht sortierbar als Gruppe) - nur anzeigen wenn $showDone aktiv --}}
+		{{-- ERLEDIGT Spalte --}}
 		@if($showDone)
 			@php $doneGroup = $groups->first(fn($g) => ($g->isDoneGroup ?? false)); @endphp
 			@if($doneGroup)
@@ -158,4 +148,24 @@
 		@endif
     </x-ui-kanban-container>
 
+    {{-- Slot Settings Modal --}}
+    @if($showSlotSettings)
+        <x-ui-modal wire:model="showSlotSettings" title="Spalte bearbeiten">
+            <div class="space-y-4">
+                <x-ui-input-text wire:model="editSlotName" label="Name" required />
+            </div>
+            <x-slot name="footer">
+                <div class="d-flex items-center justify-between w-full">
+                    <x-ui-button variant="danger-outline" size="sm" wire:click="deleteSlot" wire:confirm="Spalte wirklich löschen? Issues werden in den Backlog verschoben.">
+                        @svg('heroicon-o-trash', 'w-4 h-4')
+                        <span>Löschen</span>
+                    </x-ui-button>
+                    <div class="d-flex items-center gap-2">
+                        <x-ui-button variant="secondary-outline" wire:click="$set('showSlotSettings', false)">Abbrechen</x-ui-button>
+                        <x-ui-button variant="primary" wire:click="saveSlotSettings">Speichern</x-ui-button>
+                    </div>
+                </div>
+            </x-slot>
+        </x-ui-modal>
+    @endif
 </x-ui-page>

@@ -17,6 +17,11 @@ class Board extends Component
     public $groups;
     public bool $showDone = false;
 
+    // Slot settings
+    public ?int $editingSlotId = null;
+    public string $editSlotName = '';
+    public bool $showSlotSettings = false;
+
     public function mount(DevPackage $package, DevBoard $board): void
     {
         $this->package = $package;
@@ -73,30 +78,33 @@ class Board extends Component
         $this->groups = collect();
         $eagerLoad = ['userInCharge', 'createdBy', 'board'];
 
-        // Backlog/Inbox (Issues ohne Slot, nicht erledigt)
-        $backlog = new DevBoardSlot();
-        $backlog->id = 'backlog';
-        $backlog->name = 'BACKLOG';
-        $backlog->label = 'BACKLOG / Inbox';
-        $backlog->isBacklog = true;
-        $backlog->tasks = $this->board->issues()
+        // Slots (Issues ohne Slot werden dem ersten Slot zugerechnet oder separat in Sidebar angezeigt)
+        $slots = $this->board->slots()->orderBy('order')->get();
+
+        // Backlog-Issues (ohne Slot) dem ersten Slot voranstellen
+        $backlogIssues = $this->board->issues()
             ->with($eagerLoad)
             ->whereNull('dev_board_slot_id')
             ->where('is_done', false)
             ->orderByDesc('created_at')
             ->get();
-        $this->groups->push($backlog);
 
-        // Slots
-        $slots = $this->board->slots()->orderBy('order')->get();
-        $slots->each(function ($slot) use ($eagerLoad) {
+        $slots->each(function ($slot, $index) use ($eagerLoad, $backlogIssues) {
             $slot->label = $slot->name;
             $slot->isBacklog = false;
-            $slot->tasks = $slot->issues()
+            $slotIssues = $slot->issues()
                 ->with($eagerLoad)
                 ->where('is_done', false)
-                ->orderBy('created_at', 'desc')
+                ->orderBy('slot_order')
                 ->get();
+
+            // Backlog-Issues in die erste Spalte einfügen
+            if ($index === 0 && $backlogIssues->isNotEmpty()) {
+                $slot->tasks = $backlogIssues->merge($slotIssues);
+            } else {
+                $slot->tasks = $slotIssues;
+            }
+
             $this->groups->push($slot);
         });
 
@@ -205,6 +213,54 @@ class Board extends Component
     public function toggleShowDone(): void
     {
         $this->showDone = !$this->showDone;
+    }
+
+    public function openSlotSettings(int $slotId): void
+    {
+        $slot = DevBoardSlot::find($slotId);
+        if (!$slot || $slot->dev_board_id !== $this->board->id) {
+            return;
+        }
+
+        $this->editingSlotId = $slotId;
+        $this->editSlotName = $slot->name;
+        $this->showSlotSettings = true;
+    }
+
+    public function saveSlotSettings(): void
+    {
+        if (!$this->editingSlotId || trim($this->editSlotName) === '') {
+            return;
+        }
+
+        $slot = DevBoardSlot::find($this->editingSlotId);
+        if ($slot && $slot->dev_board_id === $this->board->id) {
+            $slot->update(['name' => trim($this->editSlotName)]);
+        }
+
+        $this->showSlotSettings = false;
+        $this->editingSlotId = null;
+        $this->loadGroups();
+    }
+
+    public function deleteSlot(): void
+    {
+        if (!$this->editingSlotId) {
+            return;
+        }
+
+        $slot = DevBoardSlot::find($this->editingSlotId);
+        if ($slot && $slot->dev_board_id === $this->board->id) {
+            // Move issues from this slot to no slot (backlog)
+            DevIssue::where('dev_board_slot_id', $slot->id)
+                ->update(['dev_board_slot_id' => null]);
+
+            $slot->delete();
+        }
+
+        $this->showSlotSettings = false;
+        $this->editingSlotId = null;
+        $this->loadGroups();
     }
 
     public function render()
