@@ -148,7 +148,7 @@
                         <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[var(--ui-muted-5)] mb-4">
                             @svg('heroicon-o-chat-bubble-left-right', 'w-8 h-8 text-[var(--ui-muted)]')
                         </div>
-                        <p class="text-sm text-[var(--ui-muted)]">Waehle eine Diskussion aus oder erstelle eine neue.</p>
+                        <p class="text-sm text-[var(--ui-muted)]">Wähle eine Diskussion aus oder erstelle eine neue.</p>
                     </div>
                 @endif
             </div>

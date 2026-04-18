@@ -1,6 +1,6 @@
 <x-ui-page>
     <x-slot name="navbar">
-        <x-ui-page-navbar title="{{ $package->name }}" icon="heroicon-o-cube" />
+        <x-ui-page-navbar title="{{ $package->name }}" />
     </x-slot>
 
     <x-slot name="actionbar">
@@ -35,7 +35,7 @@
     </x-slot>
 
     <x-slot name="sidebar">
-        <x-ui-page-sidebar title="Info" width="w-80" :defaultOpen="true" side="left">
+        <x-ui-page-sidebar title="Übersicht" width="w-80" :defaultOpen="true" storeKey="sidebarOpen" side="left">
             <div class="p-6 space-y-6">
                 {{-- Package Header --}}
                 <div class="d-flex items-center gap-3">
@@ -54,30 +54,32 @@
                     <p class="text-sm text-[var(--ui-muted)]">{{ $package->description }}</p>
                 @endif
 
-                {{-- Verantwortlich --}}
-                @if($package->userInCharge)
-                    <div class="p-3 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
-                        <div class="text-[10px] font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-1">Verantwortlich</div>
-                        <div class="text-sm text-[var(--ui-secondary)] d-flex items-center gap-1.5">
-                            @svg('heroicon-o-user', 'w-3.5 h-3.5')
-                            {{ $package->userInCharge->name }}
+                {{-- Package Info --}}
+                <div>
+                    <h3 class="text-sm font-bold text-[var(--ui-secondary)] uppercase tracking-wider mb-4">Info</h3>
+                    <div class="space-y-2 text-sm">
+                        @if($package->userInCharge)
+                            <div class="flex justify-between">
+                                <span class="text-[var(--ui-muted)]">Verantwortlich:</span>
+                                <span class="font-medium text-[var(--ui-secondary)]">{{ $package->userInCharge->name }}</span>
+                            </div>
+                        @endif
+                        @if($package->github_repo_full_name)
+                            <div class="flex justify-between">
+                                <span class="text-[var(--ui-muted)]">Repository:</span>
+                                <span class="font-medium text-[var(--ui-secondary)] truncate max-w-[10rem]">{{ $package->github_repo_full_name }}</span>
+                            </div>
+                        @endif
+                        <div class="flex justify-between">
+                            <span class="text-[var(--ui-muted)]">Erstellt:</span>
+                            <span class="font-medium text-[var(--ui-secondary)]">{{ $package->created_at->format('d.m.Y') }}</span>
                         </div>
                     </div>
-                @endif
-
-                @if($package->github_repo_full_name)
-                    <div class="p-3 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
-                        <div class="text-[10px] font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-1">Repository</div>
-                        <div class="text-sm text-[var(--ui-secondary)] d-flex items-center gap-1.5">
-                            @svg('heroicon-o-code-bracket', 'w-3.5 h-3.5')
-                            {{ $package->github_repo_full_name }}
-                        </div>
-                    </div>
-                @endif
+                </div>
 
                 {{-- Boards --}}
                 <div>
-                    <h4 class="text-[10px] font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-3">Boards</h4>
+                    <h3 class="text-sm font-bold text-[var(--ui-secondary)] uppercase tracking-wider mb-3">Boards</h3>
                     <div class="space-y-1">
                         @foreach($boards as $board)
                             <a href="{{ route('dev.packages.boards.show', [$package, $board]) }}" wire:navigate
@@ -95,6 +97,22 @@
         </x-ui-page-sidebar>
     </x-slot>
 
+    <x-slot name="activity">
+        <x-ui-page-sidebar title="Aktivitäten" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
+            <div class="p-4 space-y-4">
+                <div class="text-sm text-[var(--ui-muted)]">Letzte Aktivitäten</div>
+                <div class="space-y-3 text-sm">
+                    @foreach(($activities ?? []) as $activity)
+                        <div class="p-2 rounded border border-[var(--ui-border)]/60 bg-[var(--ui-muted-5)]">
+                            <div class="font-medium text-[var(--ui-secondary)] truncate">{{ $activity['title'] ?? 'Aktivität' }}</div>
+                            <div class="text-[var(--ui-muted)]">{{ $activity['time'] ?? '' }}</div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </x-ui-page-sidebar>
+    </x-slot>
+
     <x-ui-page-container>
         {{-- Kanban Preview --}}
         @if($activeBoard)
@@ -104,7 +122,7 @@
                     <a href="{{ route('dev.packages.boards.show', [$package, $activeBoard]) }}" wire:navigate
                        class="text-xs text-[var(--ui-primary)] hover:underline d-flex items-center gap-1">
                         @svg('heroicon-o-arrow-top-right-on-square', 'w-3.5 h-3.5')
-                        Board oeffnen
+                        Board öffnen
                     </a>
                 </div>
 

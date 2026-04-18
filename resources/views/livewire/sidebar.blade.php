@@ -18,7 +18,7 @@
             <x-ui-sidebar-list :label="$package->name">
                 <x-ui-sidebar-item :href="route('dev.packages.show', $package)">
                     @svg($package->icon ?? 'heroicon-o-cube', 'w-4 h-4 text-[var(--ui-secondary)]')
-                    <span class="ml-2 text-sm truncate">Uebersicht</span>
+                    <span class="ml-2 text-sm truncate">Übersicht</span>
                 </x-ui-sidebar-item>
                 @foreach($package->boards as $board)
                     <x-ui-sidebar-item :href="route('dev.packages.boards.show', [$package, $board])">
