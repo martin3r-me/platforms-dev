@@ -23,11 +23,11 @@ return new class extends Migration
                 ->constrained('teams')
                 ->nullOnDelete();
 
-            $table->boolean('enabled')->default(false);
-            $table->boolean('capture_console_errors')->default(false);
+            $table->boolean('enabled')->default(true);
+            $table->boolean('capture_console_errors')->default(true);
             $table->json('capture_codes')->nullable();
             $table->json('priority_mapping')->nullable();
-            $table->integer('dedupe_window_hours')->default(24);
+            $table->integer('dedupe_window_hours')->default(48);
             $table->boolean('auto_create_issue')->default(true);
             $table->boolean('include_stack_trace')->default(true);
             $table->integer('stack_trace_limit')->default(50);
