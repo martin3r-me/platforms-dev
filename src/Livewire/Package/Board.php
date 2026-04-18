@@ -24,6 +24,29 @@ class Board extends Component
         $this->loadGroups();
     }
 
+    public function rendered(): void
+    {
+        // Organization - Time Tracking + Entity Linking
+        $this->dispatch('organization', [
+            'context_type' => get_class($this->package),
+            'context_id' => $this->package->id,
+            'allow_time_entry' => true,
+            'allow_entities' => true,
+            'allow_dimensions' => true,
+            'include_children_relations' => ['boards.issues'],
+        ]);
+
+        // ExtraFields
+        $this->dispatch('extrafields', [
+            'context_type' => get_class($this->package),
+            'context_id' => $this->package->id,
+        ]);
+
+        // Terminal
+        $this->dispatch('terminal:app:activity');
+        $this->dispatch('terminal:app:files');
+    }
+
     public function loadGroups(): void
     {
         $this->groups = collect();

@@ -54,6 +54,17 @@
                     <p class="text-sm text-[var(--ui-muted)]">{{ $package->description }}</p>
                 @endif
 
+                {{-- Verantwortlich --}}
+                @if($package->userInCharge)
+                    <div class="p-3 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
+                        <div class="text-[10px] font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-1">Verantwortlich</div>
+                        <div class="text-sm text-[var(--ui-secondary)] d-flex items-center gap-1.5">
+                            @svg('heroicon-o-user', 'w-3.5 h-3.5')
+                            {{ $package->userInCharge->name }}
+                        </div>
+                    </div>
+                @endif
+
                 @if($package->github_repo_full_name)
                     <div class="p-3 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
                         <div class="text-[10px] font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-1">Repository</div>

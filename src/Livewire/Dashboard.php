@@ -60,6 +60,7 @@ class Dashboard extends Component
             'github_repo_id' => $this->selectedRepoId,
             'team_id' => $team->id,
             'created_by_user_id' => $user->id,
+            'user_in_charge_id' => $user->id,
         ]);
 
         $this->showActivateModal = false;

@@ -17,11 +17,54 @@ class Show extends Component
     {
         $this->package = $package;
 
-        // Default to first available board type
         $firstBoard = $package->boards()->first();
         if ($firstBoard) {
             $this->activeTab = $firstBoard->type instanceof \BackedEnum ? $firstBoard->type->value : $firstBoard->type;
         }
+    }
+
+    public function rendered(): void
+    {
+        // Comms - Communication/Channel Integration
+        $this->dispatch('comms', [
+            'model' => get_class($this->package),
+            'modelId' => $this->package->id,
+            'subject' => $this->package->name,
+            'description' => $this->package->description ?? '',
+            'url' => route('dev.packages.show', $this->package),
+            'source' => 'dev.package.view',
+            'recipients' => array_filter([$this->package->user_in_charge_id]),
+            'capabilities' => [
+                'manage_channels' => true,
+                'threads' => false,
+            ],
+            'meta' => [
+                'status' => $this->package->status,
+                'github_repo' => $this->package->github_repo_full_name,
+                'created_at' => $this->package->created_at,
+            ],
+        ]);
+
+        // Terminal Activity + Files + Tags
+        $this->dispatch('terminal:app:activity');
+        $this->dispatch('terminal:app:files');
+        $this->dispatch('terminal:app:tags');
+
+        // Organization - Time Tracking + Entity Linking + Dimensions
+        $this->dispatch('organization', [
+            'context_type' => get_class($this->package),
+            'context_id' => $this->package->id,
+            'allow_time_entry' => true,
+            'allow_entities' => true,
+            'allow_dimensions' => true,
+            'include_children_relations' => ['boards.issues'],
+        ]);
+
+        // ExtraFields
+        $this->dispatch('extrafields', [
+            'context_type' => get_class($this->package),
+            'context_id' => $this->package->id,
+        ]);
     }
 
     public function setTab(string $tab): void

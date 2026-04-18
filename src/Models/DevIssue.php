@@ -6,12 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Platform\ActivityLog\Traits\LogsActivity;
+use Platform\Core\Traits\HasTags;
 use Platform\Dev\Enums\IssuePriority;
+use Platform\Organization\Traits\HasTimeEntries;
 use Symfony\Component\Uid\UuidV7;
 
 class DevIssue extends Model
 {
-    use SoftDeletes, LogsActivity;
+    use SoftDeletes, LogsActivity, HasTimeEntries, HasTags;
 
     protected $table = 'dev_issues';
 

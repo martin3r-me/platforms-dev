@@ -7,11 +7,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Platform\ActivityLog\Traits\LogsActivity;
+use Platform\Core\Models\Concerns\HasEntityLinks;
+use Platform\Core\Traits\HasTags;
+use Platform\Organization\Traits\HasTimeEntries;
+use Platform\Organization\Traits\HasOrganizationContexts;
 use Symfony\Component\Uid\UuidV7;
 
 class DevPackage extends Model
 {
-    use SoftDeletes, LogsActivity;
+    use SoftDeletes, LogsActivity, HasEntityLinks, HasTags, HasTimeEntries, HasOrganizationContexts;
 
     protected $table = 'dev_packages';
 
@@ -19,6 +23,7 @@ class DevPackage extends Model
         'uuid',
         'team_id',
         'created_by_user_id',
+        'user_in_charge_id',
         'name',
         'description',
         'github_repo_full_name',
@@ -48,6 +53,11 @@ class DevPackage extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(\Platform\Core\Models\User::class, 'created_by_user_id');
+    }
+
+    public function userInCharge(): BelongsTo
+    {
+        return $this->belongsTo(\Platform\Core\Models\User::class, 'user_in_charge_id');
     }
 
     public function githubRepo(): BelongsTo
