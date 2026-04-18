@@ -13,14 +13,14 @@ class Issue extends Component
     public DevPackage $package;
     public DevIssue $issue;
 
-    public bool $editing = false;
-    public string $editTitle = '';
-    public string $editDescription = '';
-    public string $editPriority = 'normal';
-    public ?int $editStoryPoints = null;
-    public ?int $editUserInChargeId = null;
-    public ?string $editDueDate = null;
-    public ?int $editSlotId = null;
+    // Inline-editable properties
+    public string $title = '';
+    public string $description = '';
+    public string $priority = 'normal';
+    public ?int $storyPoints = null;
+    public ?int $userInChargeId = null;
+    public ?string $dueDate = null;
+    public ?int $slotId = null;
 
     // Acceptance criteria (DoD)
     public string $newCriterion = '';
@@ -29,6 +29,14 @@ class Issue extends Component
     {
         $this->package = $package;
         $this->issue = $issue;
+
+        $this->title = $issue->title;
+        $this->description = $issue->description ?? '';
+        $this->priority = $issue->priority instanceof \BackedEnum ? $issue->priority->value : $issue->priority;
+        $this->storyPoints = $issue->story_points;
+        $this->userInChargeId = $issue->user_in_charge_id;
+        $this->dueDate = $issue->due_date?->format('Y-m-d');
+        $this->slotId = $issue->dev_board_slot_id;
     }
 
     public function rendered(): void
@@ -97,41 +105,56 @@ class Issue extends Component
         ]);
     }
 
-    public function startEditing(): void
-    {
-        $this->editTitle = $this->issue->title;
-        $this->editDescription = $this->issue->description ?? '';
-        $this->editPriority = $this->issue->priority instanceof \BackedEnum ? $this->issue->priority->value : $this->issue->priority;
-        $this->editStoryPoints = $this->issue->story_points;
-        $this->editUserInChargeId = $this->issue->user_in_charge_id;
-        $this->editDueDate = $this->issue->due_date?->format('Y-m-d');
-        $this->editSlotId = $this->issue->dev_board_slot_id;
-        $this->editing = true;
-    }
+    // --- Inline Save Methods ---
 
-    public function saveEdit(): void
+    public function updateTitle(): void
     {
-        if (trim($this->editTitle) === '') {
+        if (trim($this->title) === '') {
+            $this->title = $this->issue->title;
             return;
         }
 
         $service = new DevIssueService();
-        $this->issue = $service->updateIssue($this->issue, [
-            'title' => trim($this->editTitle),
-            'description' => trim($this->editDescription) ?: null,
-            'priority' => $this->editPriority,
-            'story_points' => $this->editStoryPoints ?: null,
-            'user_in_charge_id' => $this->editUserInChargeId ?: null,
-            'due_date' => $this->editDueDate ?: null,
-            'dev_board_slot_id' => $this->editSlotId ?: null,
-        ]);
-
-        $this->editing = false;
+        $this->issue = $service->updateIssue($this->issue, ['title' => trim($this->title)]);
     }
 
-    public function cancelEdit(): void
+    public function updateDescription(): void
     {
-        $this->editing = false;
+        $service = new DevIssueService();
+        $this->issue = $service->updateIssue($this->issue, ['description' => trim($this->description) ?: null]);
+    }
+
+    public function updatePriority(string $value): void
+    {
+        $this->priority = $value;
+        $service = new DevIssueService();
+        $this->issue = $service->updateIssue($this->issue, ['priority' => $value]);
+    }
+
+    public function updateStoryPoints(): void
+    {
+        $service = new DevIssueService();
+        $this->issue = $service->updateIssue($this->issue, ['story_points' => $this->storyPoints ?: null]);
+    }
+
+    public function updateUserInCharge($userId): void
+    {
+        $this->userInChargeId = $userId ?: null;
+        $service = new DevIssueService();
+        $this->issue = $service->updateIssue($this->issue, ['user_in_charge_id' => $userId ?: null]);
+    }
+
+    public function updateDueDate(): void
+    {
+        $service = new DevIssueService();
+        $this->issue = $service->updateIssue($this->issue, ['due_date' => $this->dueDate ?: null]);
+    }
+
+    public function updateSlot($slotId): void
+    {
+        $this->slotId = $slotId ?: null;
+        $service = new DevIssueService();
+        $this->issue = $service->updateIssue($this->issue, ['dev_board_slot_id' => $slotId ?: null]);
     }
 
     public function toggleDone(): void

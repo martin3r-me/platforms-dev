@@ -153,6 +153,9 @@ class DevServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Dev\Tools\GetDiscussionTool());
             $registry->register(new \Platform\Dev\Tools\CreateDiscussionTool());
             $registry->register(new \Platform\Dev\Tools\ReplyToDiscussionTool());
+
+            // Error Tracking Debug
+            $registry->register(new \Platform\Dev\Tools\ErrorTrackingDebugTool());
         } catch (\Throwable $e) {
             \Log::warning('Dev: Tool-Registrierung fehlgeschlagen', ['error' => $e->getMessage()]);
         }

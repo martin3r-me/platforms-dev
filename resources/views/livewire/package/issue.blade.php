@@ -10,12 +10,6 @@
             $issue->board ? ['label' => $issue->board->name, 'href' => route('dev.packages.boards.show', [$package, $issue->board])] : null,
             ['label' => Str::limit($issue->title, 40)],
         ])">
-            @if(!$editing)
-                <x-ui-button variant="secondary-outline" size="sm" wire:click="startEditing">
-                    @svg('heroicon-o-pencil', 'w-4 h-4')
-                    <span>Bearbeiten</span>
-                </x-ui-button>
-            @endif
         </x-ui-page-actionbar>
     </x-slot>
 
@@ -128,46 +122,17 @@
     </x-slot>
 
     <x-ui-page-container spacing="space-y-6">
-        {{-- Header --}}
+        {{-- Header with inline-editable title --}}
         <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden">
             <div class="py-4 px-6">
                 <div class="flex items-start justify-between gap-4">
                     <div class="flex-1 min-w-0">
                         <div class="d-flex items-center gap-3 mb-2">
-                            <h1 class="text-xl font-bold text-[var(--ui-secondary)] tracking-tight {{ $issue->is_done ? 'line-through opacity-60' : '' }}">{{ $issue->title }}</h1>
-                            @if($issue->story_points)
-                                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[var(--ui-primary-5)] border border-[var(--ui-primary)]/20 text-sm font-bold text-[var(--ui-primary)] flex-shrink-0">
-                                    {{ $issue->story_points }}
-                                </span>
-                            @endif
-                        </div>
-                        <div class="flex flex-wrap items-center gap-4 text-sm text-[var(--ui-muted)]">
-                            @if($issue->board)
-                                <span class="flex items-center gap-1.5">
-                                    @svg('heroicon-o-rectangle-stack', 'w-4 h-4')
-                                    {{ $issue->board->name }}
-                                </span>
-                            @endif
-                            @if($issue->userInCharge)
-                                <span class="flex items-center gap-1.5">
-                                    @svg('heroicon-o-user', 'w-4 h-4')
-                                    {{ $issue->userInCharge->name }}
-                                </span>
-                            @endif
-                            @if($issue->due_date)
-                                @php $isOverdue = $issue->due_date->isPast() && !$issue->is_done; @endphp
-                                <span class="flex items-center gap-1.5 {{ $isOverdue ? 'text-[var(--ui-danger)]' : '' }}">
-                                    @svg('heroicon-o-calendar', 'w-4 h-4')
-                                    {{ $issue->due_date->format('d.m.Y') }}
-                                </span>
-                            @endif
-                            @php $pv = $issue->priority instanceof \BackedEnum ? $issue->priority->value : $issue->priority; @endphp
-                            @if($pv === 'high')
-                                <span class="flex items-center gap-1.5 text-[var(--ui-danger)]">
-                                    @svg('heroicon-o-fire', 'w-4 h-4')
-                                    Hoch
-                                </span>
-                            @endif
+                            <input type="text"
+                                   wire:model.blur="title"
+                                   wire:change="updateTitle"
+                                   class="text-xl font-bold text-[var(--ui-secondary)] tracking-tight bg-transparent border-none focus:outline-none focus:ring-0 w-full p-0 {{ $issue->is_done ? 'line-through opacity-60' : '' }}"
+                                   placeholder="Titel eingeben...">
                         </div>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
@@ -179,77 +144,77 @@
             </div>
         </div>
 
-        @if($editing)
-            {{-- Edit Form --}}
-            <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden">
-                <div class="p-5 space-y-6">
-                    <h4 class="text-sm font-semibold text-[var(--ui-muted)] uppercase tracking-wider">Grunddaten</h4>
-                    <x-ui-form-grid :cols="3" :gap="6">
-                        <div class="col-span-2">
-                            <x-ui-input-text wire:model="editTitle" label="Titel" required />
-                        </div>
-                        <x-ui-input-select
-                            name="editPriority"
-                            wire:model="editPriority"
-                            label="Priorität"
-                            :options="['low' => 'Niedrig', 'normal' => 'Normal', 'high' => 'Hoch']"
-                        />
-                    </x-ui-form-grid>
-
-                    <x-ui-form-grid :cols="4" :gap="6">
-                        <x-ui-input-text wire:model="editStoryPoints" label="Story Points" type="number" min="0" max="100" placeholder="z.B. 3, 5, 8" />
-                        <x-ui-input-select
-                            name="editUserInChargeId"
-                            wire:model="editUserInChargeId"
-                            label="Zuständig"
-                            :options="$teamUsers"
-                            optionValue="id"
-                            optionLabel="name"
-                            :nullable="true"
-                            nullLabel="– Niemand zugewiesen –"
-                        />
-                        <x-ui-input-text wire:model="editDueDate" label="Fällig am" type="date" />
-                        <x-ui-input-select
-                            name="editSlotId"
-                            wire:model="editSlotId"
-                            label="Slot"
-                            :options="$boardSlots"
-                            optionValue="id"
-                            optionLabel="name"
-                            :nullable="true"
-                            nullLabel="Backlog"
-                        />
-                    </x-ui-form-grid>
-
+        {{-- Compact inline edit grid --}}
+        <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden">
+            <div class="p-5 space-y-4">
+                <div class="grid grid-cols-3 gap-4">
+                    <x-ui-input-select
+                        name="priority"
+                        wire:model="priority"
+                        wire:change="updatePriority($event.target.value)"
+                        label="Priorität"
+                        :options="['low' => 'Niedrig', 'normal' => 'Normal', 'high' => 'Hoch']"
+                    />
                     <div>
-                        <h4 class="text-sm font-semibold text-[var(--ui-muted)] uppercase tracking-wider mb-3">Beschreibung</h4>
-                        <x-ui-input-textarea wire:model="editDescription" label="Beschreibung" rows="6" />
+                        <x-ui-input-text
+                            wire:model.blur="storyPoints"
+                            wire:change="updateStoryPoints"
+                            label="Story Points"
+                            type="number"
+                            min="0"
+                            max="100"
+                            placeholder="z.B. 3, 5, 8"
+                        />
                     </div>
+                    <x-ui-input-select
+                        name="slotId"
+                        wire:model="slotId"
+                        wire:change="updateSlot($event.target.value)"
+                        label="Slot"
+                        :options="$boardSlots"
+                        optionValue="id"
+                        optionLabel="name"
+                        :nullable="true"
+                        nullLabel="Backlog"
+                    />
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <x-ui-input-select
+                        name="userInChargeId"
+                        wire:model="userInChargeId"
+                        wire:change="updateUserInCharge($event.target.value)"
+                        label="Zuständig"
+                        :options="$teamUsers"
+                        optionValue="id"
+                        optionLabel="name"
+                        :nullable="true"
+                        nullLabel="– Niemand zugewiesen –"
+                    />
+                    <div>
+                        <x-ui-input-text
+                            wire:model.blur="dueDate"
+                            wire:change="updateDueDate"
+                            label="Fällig am"
+                            type="date"
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                    <div class="d-flex items-center gap-2">
-                        <x-ui-button variant="primary" size="sm" wire:click="saveEdit">
-                            @svg('heroicon-o-check', 'w-4 h-4')
-                            <span>Speichern</span>
-                        </x-ui-button>
-                        <x-ui-button variant="secondary-outline" size="sm" wire:click="cancelEdit">Abbrechen</x-ui-button>
-                    </div>
-                </div>
+        {{-- Description --}}
+        <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden">
+            <div class="p-5">
+                <h4 class="text-sm font-semibold text-[var(--ui-muted)] uppercase tracking-wider mb-3">Beschreibung</h4>
+                <textarea
+                    wire:model.blur="description"
+                    wire:change="updateDescription"
+                    rows="6"
+                    placeholder="Beschreibung hinzufügen..."
+                    class="w-full text-sm text-[var(--ui-secondary)] placeholder-[var(--ui-muted)] bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/30 rounded-lg px-4 py-3 focus:outline-none focus:border-[var(--ui-primary)]/40 resize-y"
+                ></textarea>
             </div>
-        @else
-            {{-- Description --}}
-            <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden">
-                <div class="p-5">
-                    <h4 class="text-sm font-semibold text-[var(--ui-muted)] uppercase tracking-wider mb-3">Beschreibung</h4>
-                    @if($issue->description)
-                        <div class="prose prose-sm max-w-none text-[var(--ui-secondary)]">
-                            {!! nl2br(e($issue->description)) !!}
-                        </div>
-                    @else
-                        <p class="text-sm text-[var(--ui-muted)] italic">Keine Beschreibung vorhanden.</p>
-                    @endif
-                </div>
-            </div>
-        @endif
+        </div>
 
         {{-- Acceptance Criteria (DoD) --}}
         <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden">
