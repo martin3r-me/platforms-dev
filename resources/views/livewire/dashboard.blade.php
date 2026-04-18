@@ -128,7 +128,7 @@
         <x-ui-modal wire:model="showActivateModal" title="Package aktivieren">
             <div class="space-y-4">
                 @if($availableRepos->isNotEmpty())
-                    <x-ui-input-select wire:model.live="selectedRepoId" label="GitHub Repository">
+                    <x-ui-input-select name="selectedRepoId" wire:model.live="selectedRepoId" label="GitHub Repository">
                         <option value="">-- Ohne Repository --</option>
                         @foreach($availableRepos as $repo)
                             <option value="{{ $repo->id }}">{{ $repo->full_name }}{{ $repo->is_private ? ' (privat)' : '' }}</option>

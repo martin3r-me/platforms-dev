@@ -20,7 +20,7 @@
                         <div class="space-y-3">
                             <x-ui-input-text wire:model="editTitle" label="Titel" />
                             <x-ui-input-textarea wire:model="editDescription" label="Beschreibung" rows="6" />
-                            <x-ui-input-select wire:model="editPriority" label="Prioritaet">
+                            <x-ui-input-select name="editPriority" wire:model="editPriority" label="Prioritaet">
                                 <option value="low">Niedrig</option>
                                 <option value="normal">Normal</option>
                                 <option value="high">Hoch</option>
