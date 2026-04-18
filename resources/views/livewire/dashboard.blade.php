@@ -109,19 +109,34 @@
                     <div class="p-4 border-b border-[var(--ui-border)]/60">
                         <h3 class="text-sm font-semibold text-[var(--ui-secondary)]">Packages</h3>
                     </div>
-                    <div class="divide-y divide-[var(--ui-border)]/40">
+                    <div class="p-3 space-y-2">
                         @forelse($packages as $package)
                             <a href="{{ route('dev.packages.show', $package) }}"
                                wire:navigate
-                               class="d-flex items-center gap-3 p-3 hover:bg-[var(--ui-muted-5)] transition-colors">
-                                <div class="w-8 h-8 rounded-lg d-flex items-center justify-center bg-[var(--ui-primary-5)] text-[var(--ui-primary)] flex-shrink-0">
-                                    @svg($package->icon ?? 'heroicon-o-cube', 'w-4 h-4')
+                               class="block p-3 rounded-lg border border-[var(--ui-border)]/40 hover:border-[var(--ui-primary)]/40 hover:bg-[var(--ui-primary-5)] transition-colors">
+                                <div class="d-flex items-center gap-2 mb-1.5">
+                                    @svg($package->icon ?? 'heroicon-o-cube', 'w-4 h-4 text-[var(--ui-primary)] flex-shrink-0')
+                                    <span class="text-sm font-medium text-[var(--ui-secondary)] truncate">{{ $package->name }}</span>
                                 </div>
-                                <div class="min-w-0 flex-grow-1">
-                                    <div class="text-sm font-medium text-[var(--ui-secondary)] truncate">{{ $package->name }}</div>
-                                    <div class="text-xs text-[var(--ui-muted)]">
-                                        {{ $packageStats[$package->id]['open_features'] ?? 0 }} Features · {{ $packageStats[$package->id]['open_bugs'] ?? 0 }} Bugs
-                                    </div>
+                                @if($package->github_repo_full_name)
+                                    <div class="text-xs text-[var(--ui-muted)] font-mono mb-1.5 truncate">{{ $package->github_repo_full_name }}</div>
+                                @endif
+                                <div class="d-flex items-center gap-2">
+                                    @if(($packageStats[$package->id]['open_features'] ?? 0) > 0)
+                                        <span class="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-[var(--ui-primary-5)] text-[var(--ui-primary)]">
+                                            @svg('heroicon-o-light-bulb', 'w-3 h-3')
+                                            {{ $packageStats[$package->id]['open_features'] }}
+                                        </span>
+                                    @endif
+                                    @if(($packageStats[$package->id]['open_bugs'] ?? 0) > 0)
+                                        <span class="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-red-500/10 text-[var(--ui-danger)]">
+                                            @svg('heroicon-o-bug-ant', 'w-3 h-3')
+                                            {{ $packageStats[$package->id]['open_bugs'] }}
+                                        </span>
+                                    @endif
+                                    @if(($packageStats[$package->id]['open_features'] ?? 0) === 0 && ($packageStats[$package->id]['open_bugs'] ?? 0) === 0)
+                                        <span class="text-xs text-[var(--ui-muted)]">Keine offenen Issues</span>
+                                    @endif
                                 </div>
                             </a>
                         @empty
