@@ -128,11 +128,14 @@
         <x-ui-modal wire:model="showActivateModal" title="Package aktivieren">
             <div class="space-y-4">
                 @if($availableRepos->isNotEmpty())
-                    <x-ui-input-select name="selectedRepoId" wire:model.live="selectedRepoId" label="GitHub Repository" :nullable="true" nullLabel="-- Ohne Repository --">
-                        @foreach($availableRepos as $repo)
-                            <option value="{{ $repo->id }}">{{ $repo->full_name }}{{ $repo->is_private ? ' (privat)' : '' }}{{ $repo->language ? ' · '.$repo->language : '' }}</option>
-                        @endforeach
-                    </x-ui-input-select>
+                    <x-ui-input-select
+                        name="selectedRepoId"
+                        wire:model.live="selectedRepoId"
+                        label="GitHub Repository"
+                        :nullable="true"
+                        nullLabel="-- Ohne Repository --"
+                        :options="$availableRepos->mapWithKeys(fn ($r) => [$r->id => $r->full_name . ($r->is_private ? ' (privat)' : '') . ($r->language ? ' · '.$r->language : '')])->toArray()"
+                    />
                 @else
                     <div class="p-3 rounded-lg bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/40">
                         <p class="text-xs text-[var(--ui-muted)]">Keine GitHub-Repositories verfuegbar. Verbinde GitHub unter Integrationen und synchronisiere deine Repos.</p>

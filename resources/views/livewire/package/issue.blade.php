@@ -20,11 +20,12 @@
                         <div class="space-y-3">
                             <x-ui-input-text wire:model="editTitle" label="Titel" />
                             <x-ui-input-textarea wire:model="editDescription" label="Beschreibung" rows="6" />
-                            <x-ui-input-select name="editPriority" wire:model="editPriority" label="Prioritaet">
-                                <option value="low">Niedrig</option>
-                                <option value="normal">Normal</option>
-                                <option value="high">Hoch</option>
-                            </x-ui-input-select>
+                            <x-ui-input-select
+                                name="editPriority"
+                                wire:model="editPriority"
+                                label="Prioritaet"
+                                :options="['low' => 'Niedrig', 'normal' => 'Normal', 'high' => 'Hoch']"
+                            />
                             <div class="d-flex items-center gap-2">
                                 <x-ui-button variant="primary" size="sm" wire:click="saveEdit">Speichern</x-ui-button>
                                 <x-ui-button variant="secondary-outline" size="sm" wire:click="cancelEdit">Abbrechen</x-ui-button>
