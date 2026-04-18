@@ -137,10 +137,32 @@ class ErrorTrackingDebugTool implements ToolContract, ToolMetadataContract
                     $lines[] = '  Letzter Fehler: (keine Occurrences vorhanden)';
                 }
 
-                // ENV status
-                $envKey = 'DEV_ERROR_ENDPOINT_' . strtoupper(str_replace('-', '_', $package->name));
-                $envValue = getenv($envKey);
-                $lines[] = '  ENV ' . $envKey . ': ' . ($envValue ? 'gesetzt' : 'NICHT gesetzt');
+                // ENV status - derive key from package name
+                // Package name like "platforms-organization" → try both long and short form
+                $envKeyLong = 'DEV_ERROR_ENDPOINT_' . strtoupper(str_replace('-', '_', $package->name));
+                $envValueLong = getenv($envKeyLong) ?: env($envKeyLong);
+
+                // Short form: strip "platform-" or "platforms-" prefix
+                $shortName = preg_replace('/^platforms?-/', '', $package->name);
+                $envKeyShort = 'DEV_ERROR_ENDPOINT_' . strtoupper(str_replace('-', '_', $shortName));
+                $envValueShort = ($envKeyShort !== $envKeyLong) ? (getenv($envKeyShort) ?: env($envKeyShort)) : null;
+
+                $activeEnv = $envValueLong ? $envKeyLong : ($envValueShort ? $envKeyShort : null);
+                $lines[] = '  ENV Status:';
+                if ($activeEnv) {
+                    $lines[] = '    ' . $activeEnv . ': gesetzt';
+                } else {
+                    $lines[] = '    ' . $envKeyShort . ': NICHT gesetzt';
+                    if ($envKeyLong !== $envKeyShort) {
+                        $lines[] = '    ' . $envKeyLong . ': NICHT gesetzt';
+                    }
+                }
+
+                // Suggest configuration if ingest URL is available but ENV not set
+                if (!$activeEnv && $settings && $settings->getIngestUrl()) {
+                    $lines[] = '  TIPP: Fuege in .env hinzu:';
+                    $lines[] = '    ' . $envKeyShort . '=' . $settings->getIngestUrl();
+                }
 
                 $lines[] = '';
             }
