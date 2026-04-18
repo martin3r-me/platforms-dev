@@ -12,15 +12,26 @@ class Dashboard extends Component
 {
     public string $activatePackageName = '';
     public string $activatePackageDescription = '';
-    public string $activatePackageRepo = '';
+    public ?int $selectedRepoId = null;
     public bool $showActivateModal = false;
 
     public function openActivateModal(): void
     {
         $this->activatePackageName = '';
         $this->activatePackageDescription = '';
-        $this->activatePackageRepo = '';
+        $this->selectedRepoId = null;
         $this->showActivateModal = true;
+    }
+
+    public function updatedSelectedRepoId($value): void
+    {
+        if ($value) {
+            $repos = $this->getAvailableRepos();
+            $repo = $repos->firstWhere('id', (int) $value);
+            if ($repo && $this->activatePackageName === '') {
+                $this->activatePackageName = $repo->name;
+            }
+        }
     }
 
     public function activatePackage(): void
@@ -32,11 +43,21 @@ class Dashboard extends Component
             return;
         }
 
+        $repoFullName = null;
+        if ($this->selectedRepoId) {
+            $repos = $this->getAvailableRepos();
+            $repo = $repos->firstWhere('id', (int) $this->selectedRepoId);
+            if ($repo) {
+                $repoFullName = $repo->full_name;
+            }
+        }
+
         $service = new DevPackageService();
         $package = $service->activate([
             'name' => trim($this->activatePackageName),
             'description' => trim($this->activatePackageDescription) ?: null,
-            'github_repo_full_name' => trim($this->activatePackageRepo) ?: null,
+            'github_repo_full_name' => $repoFullName,
+            'github_repo_id' => $this->selectedRepoId,
             'team_id' => $team->id,
             'created_by_user_id' => $user->id,
         ]);
@@ -44,6 +65,41 @@ class Dashboard extends Component
         $this->showActivateModal = false;
         $this->dispatch('updateSidebar');
         $this->redirect(route('dev.packages.show', $package), navigate: true);
+    }
+
+    protected function getAvailableRepos()
+    {
+        try {
+            $user = Auth::user();
+
+            // Get GitHub connections accessible to the user (owner or granted)
+            $connectionIds = \Platform\Integrations\Models\IntegrationConnection::query()
+                ->whereHas('integration', fn ($q) => $q->where('key', 'github'))
+                ->where(function ($q) use ($user) {
+                    $q->where('owner_user_id', $user->id)
+                      ->orWhereHas('grants', fn ($g) => $g->where('grantee_user_id', $user->id));
+                })
+                ->where('status', 'active')
+                ->pluck('id');
+
+            if ($connectionIds->isEmpty()) {
+                return collect();
+            }
+
+            // Already linked repo IDs in this team
+            $linkedRepoIds = DevPackage::where('team_id', $user->currentTeam->id)
+                ->whereNotNull('github_repo_id')
+                ->pluck('github_repo_id');
+
+            return \Platform\Integrations\Models\IntegrationGithubRepo::query()
+                ->whereIn('connection_id', $connectionIds)
+                ->where('is_active', true)
+                ->whereNotIn('id', $linkedRepoIds)
+                ->orderBy('full_name')
+                ->get();
+        } catch (\Throwable $e) {
+            return collect();
+        }
     }
 
     public function render()
@@ -75,11 +131,14 @@ class Dashboard extends Component
             ];
         }
 
+        $availableRepos = $this->showActivateModal ? $this->getAvailableRepos() : collect();
+
         return view('dev::livewire.dashboard', [
             'packages' => $packages,
             'totalPackages' => $totalPackages,
             'totalOpenIssues' => $totalOpenIssues,
             'packageStats' => $packageStats,
+            'availableRepos' => $availableRepos,
         ])->layout('platform::layouts.app');
     }
 }

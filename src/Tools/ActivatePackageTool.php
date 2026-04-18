@@ -22,7 +22,7 @@ class ActivatePackageTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'POST /dev/packages/activate - Aktiviert ein neues Package (erstellt es mit Default-Boards). ERFORDERLICH: name. Optional: description, github_repo_full_name, github_repo_id, icon.';
+        return 'POST /dev/packages/activate - Aktiviert ein neues Package (erstellt es mit Default-Boards). ERFORDERLICH: name. Optional: description, github_repo_id (FK zu integration_github_repos), icon. Der full_name wird automatisch aus dem Repo geladen.';
     }
 
     public function getSchema(): array
@@ -41,13 +41,9 @@ class ActivatePackageTool implements ToolContract, ToolMetadataContract
                     'type' => 'string',
                     'description' => 'Optional: Beschreibung.',
                 ],
-                'github_repo_full_name' => [
-                    'type' => 'string',
-                    'description' => 'Optional: GitHub Repo (z.B. "org/repo-name").',
-                ],
                 'github_repo_id' => [
                     'type' => 'integer',
-                    'description' => 'Optional: FK zu integrations_github_repositories.',
+                    'description' => 'Optional: FK zu integration_github_repos. Der full_name wird automatisch aufgeloest.',
                 ],
                 'icon' => [
                     'type' => 'string',
@@ -76,12 +72,26 @@ class ActivatePackageTool implements ToolContract, ToolMetadataContract
                 return ToolResult::error('VALIDATION_ERROR', 'name ist erforderlich.');
             }
 
+            // Auto-resolve full_name from repo FK
+            $githubRepoId = $arguments['github_repo_id'] ?? null;
+            $githubRepoFullName = null;
+            if ($githubRepoId) {
+                try {
+                    $repo = \Platform\Integrations\Models\IntegrationGithubRepo::find($githubRepoId);
+                    if ($repo) {
+                        $githubRepoFullName = $repo->full_name;
+                    }
+                } catch (\Throwable $e) {
+                    // Integrations module not loaded
+                }
+            }
+
             $service = new DevPackageService();
             $package = $service->activate([
                 'name' => $name,
                 'description' => $arguments['description'] ?? null,
-                'github_repo_full_name' => $arguments['github_repo_full_name'] ?? null,
-                'github_repo_id' => $arguments['github_repo_id'] ?? null,
+                'github_repo_full_name' => $githubRepoFullName,
+                'github_repo_id' => $githubRepoId,
                 'icon' => $arguments['icon'] ?? null,
                 'team_id' => $teamId,
                 'created_by_user_id' => $context->user->id,

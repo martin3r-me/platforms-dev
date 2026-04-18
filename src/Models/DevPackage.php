@@ -50,6 +50,11 @@ class DevPackage extends Model
         return $this->belongsTo(\Platform\Core\Models\User::class, 'created_by_user_id');
     }
 
+    public function githubRepo(): BelongsTo
+    {
+        return $this->belongsTo(\Platform\Integrations\Models\IntegrationGithubRepo::class, 'github_repo_id');
+    }
+
     public function boards(): HasMany
     {
         return $this->hasMany(DevBoard::class, 'dev_package_id')->orderBy('order');

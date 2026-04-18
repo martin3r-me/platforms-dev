@@ -127,9 +127,20 @@
     @if($showActivateModal)
         <x-ui-modal wire:model="showActivateModal" title="Package aktivieren">
             <div class="space-y-4">
+                @if($availableRepos->isNotEmpty())
+                    <x-ui-input-select wire:model.live="selectedRepoId" label="GitHub Repository">
+                        <option value="">-- Ohne Repository --</option>
+                        @foreach($availableRepos as $repo)
+                            <option value="{{ $repo->id }}">{{ $repo->full_name }}{{ $repo->is_private ? ' (privat)' : '' }}</option>
+                        @endforeach
+                    </x-ui-input-select>
+                @else
+                    <div class="p-3 rounded-lg bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/40">
+                        <p class="text-xs text-[var(--ui-muted)]">Keine GitHub-Repositories verfuegbar. Verbinde GitHub unter Integrationen, um Repos auszuwaehlen.</p>
+                    </div>
+                @endif
                 <x-ui-input-text wire:model="activatePackageName" label="Name" placeholder="z.B. Platform Sheets" required />
                 <x-ui-input-textarea wire:model="activatePackageDescription" label="Beschreibung" placeholder="Optional" />
-                <x-ui-input-text wire:model="activatePackageRepo" label="GitHub Repository" placeholder="z.B. org/repo-name" />
             </div>
             <x-slot name="footer">
                 <x-ui-button variant="secondary-outline" wire:click="$set('showActivateModal', false)">Abbrechen</x-ui-button>
