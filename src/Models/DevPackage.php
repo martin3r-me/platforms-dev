@@ -1,0 +1,72 @@
+<?php
+
+namespace Platform\Dev\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Platform\ActivityLog\Traits\LogsActivity;
+use Symfony\Component\Uid\UuidV7;
+
+class DevPackage extends Model
+{
+    use SoftDeletes, LogsActivity;
+
+    protected $table = 'dev_packages';
+
+    protected $fillable = [
+        'uuid',
+        'team_id',
+        'created_by_user_id',
+        'name',
+        'description',
+        'github_repo_full_name',
+        'github_repo_id',
+        'status',
+        'icon',
+        'order',
+    ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $model) {
+            if (empty($model->uuid)) {
+                do {
+                    $uuid = UuidV7::generate();
+                } while (self::where('uuid', $uuid)->exists());
+                $model->uuid = $uuid;
+            }
+        });
+    }
+
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(\Platform\Core\Models\Team::class, 'team_id');
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(\Platform\Core\Models\User::class, 'created_by_user_id');
+    }
+
+    public function boards(): HasMany
+    {
+        return $this->hasMany(DevBoard::class, 'dev_package_id')->orderBy('order');
+    }
+
+    public function discussions(): HasMany
+    {
+        return $this->hasMany(DevDiscussion::class, 'dev_package_id')->orderByDesc('is_pinned')->orderByDesc('updated_at');
+    }
+
+    public function scopeForTeam($query, int $teamId)
+    {
+        return $query->where('team_id', $teamId);
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
+    }
+}
