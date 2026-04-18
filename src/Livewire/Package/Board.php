@@ -26,6 +26,31 @@ class Board extends Component
 
     public function rendered(): void
     {
+        // Comms - Communication/Channel Integration (Package-level)
+        $this->dispatch('comms', [
+            'model' => get_class($this->package),
+            'modelId' => $this->package->id,
+            'subject' => $this->package->name . ' – ' . $this->board->name,
+            'description' => $this->board->description ?? '',
+            'url' => route('dev.packages.boards.show', [$this->package, $this->board]),
+            'source' => 'dev.board.view',
+            'recipients' => array_filter([$this->package->user_in_charge_id]),
+            'capabilities' => [
+                'manage_channels' => true,
+                'threads' => false,
+            ],
+            'meta' => [
+                'board' => $this->board->name,
+                'board_type' => $this->board->type instanceof \BackedEnum ? $this->board->type->value : $this->board->type,
+                'package' => $this->package->name,
+            ],
+        ]);
+
+        // Terminal Activity + Files + Tags
+        $this->dispatch('terminal:app:activity');
+        $this->dispatch('terminal:app:files');
+        $this->dispatch('terminal:app:tags');
+
         // Organization - Time Tracking + Entity Linking
         $this->dispatch('organization', [
             'context_type' => get_class($this->package),
@@ -41,10 +66,6 @@ class Board extends Component
             'context_type' => get_class($this->package),
             'context_id' => $this->package->id,
         ]);
-
-        // Terminal
-        $this->dispatch('terminal:app:activity');
-        $this->dispatch('terminal:app:files');
     }
 
     public function loadGroups(): void
