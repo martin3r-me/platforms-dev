@@ -17,6 +17,9 @@ class DevServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/dev.php', 'dev');
+
+        $this->app->singleton('dev.error-tracker', Services\DevErrorTrackingService::class);
+        $this->app->singleton(Contracts\DevErrorTrackerContract::class, Services\DevErrorTrackingService::class);
     }
 
     public function boot(): void
@@ -25,6 +28,7 @@ class DevServiceProvider extends ServiceProvider
         Relation::morphMap([
             'dev_package' => \Platform\Dev\Models\DevPackage::class,
             'dev_issue' => \Platform\Dev\Models\DevIssue::class,
+            'dev_error_occurrence' => \Platform\Dev\Models\DevErrorOccurrence::class,
         ]);
 
         if (

@@ -20,6 +20,10 @@
                 @endforeach
             </x-slot>
             @if(!$editingPackage)
+                <x-ui-button variant="secondary-outline" size="sm" wire:click="openErrorSettings">
+                    @svg('heroicon-o-bug-ant', 'w-4 h-4')
+                    <span>Error Tracking</span>
+                </x-ui-button>
                 <x-ui-button variant="secondary-outline" size="sm" wire:click="startEditingPackage">
                     @svg('heroicon-o-pencil', 'w-4 h-4')
                     <span>Bearbeiten</span>
@@ -67,6 +71,12 @@
                         <div class="flex justify-between">
                             <span class="text-[var(--ui-muted)]">Erstellt:</span>
                             <span class="font-medium text-[var(--ui-secondary)]">{{ $package->created_at->format('d.m.Y') }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-[var(--ui-muted)]">Error Tracking:</span>
+                            <span class="font-medium {{ $errorSettingsEnabled ? 'text-[var(--ui-success)]' : 'text-[var(--ui-muted)]' }}">
+                                {{ $errorSettingsEnabled ? 'Aktiv' : 'Inaktiv' }}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -220,6 +230,56 @@
             </div>
         </div>
 
+        {{-- Error Occurrences --}}
+        @if($errorSettingsEnabled && $errorOccurrences->count() > 0)
+            <div class="bg-[var(--ui-surface)] rounded-lg border border-[var(--ui-danger)]/30 mb-6">
+                <div class="p-4 border-b border-[var(--ui-border)]/60 d-flex items-center justify-between">
+                    <div class="d-flex items-center gap-2">
+                        @svg('heroicon-o-bug-ant', 'w-4 h-4 text-[var(--ui-danger)]')
+                        <h3 class="text-sm font-semibold text-[var(--ui-secondary)]">Offene Errors</h3>
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-[var(--ui-danger)]/10 text-[var(--ui-danger)] font-medium">{{ $errorOccurrences->count() }}</span>
+                    </div>
+                </div>
+                <div class="divide-y divide-[var(--ui-border)]/40">
+                    @foreach($errorOccurrences as $occurrence)
+                        <div class="p-3 d-flex items-start gap-3 group">
+                            <div class="flex-shrink-0 mt-0.5">
+                                @if($occurrence->http_code >= 500)
+                                    @svg('heroicon-s-exclamation-triangle', 'w-4 h-4 text-[var(--ui-danger)]')
+                                @else
+                                    @svg('heroicon-o-exclamation-circle', 'w-4 h-4 text-[var(--ui-warning)]')
+                                @endif
+                            </div>
+                            <div class="min-w-0 flex-grow-1">
+                                <div class="text-sm font-medium text-[var(--ui-secondary)] truncate">
+                                    @if($occurrence->http_code)
+                                        <span class="font-mono text-xs px-1 py-0.5 rounded bg-[var(--ui-danger)]/10 text-[var(--ui-danger)] mr-1">{{ $occurrence->http_code }}</span>
+                                    @endif
+                                    {{ $occurrence->getShortExceptionClass() }}
+                                </div>
+                                <div class="text-xs text-[var(--ui-muted)] mt-0.5 truncate">{{ Str::limit($occurrence->message, 100) }}</div>
+                                <div class="text-xs text-[var(--ui-muted)] mt-0.5 font-mono">{{ Str::afterLast($occurrence->file ?? '', '/') }}:{{ $occurrence->line }}</div>
+                            </div>
+                            <div class="flex-shrink-0 text-right">
+                                <div class="text-xs text-[var(--ui-muted)]">{{ $occurrence->last_seen_at?->diffForHumans() }}</div>
+                                @if($occurrence->occurrence_count > 1)
+                                    <div class="text-xs font-medium text-[var(--ui-danger)]">{{ $occurrence->occurrence_count }}x</div>
+                                @endif
+                            </div>
+                            <div class="flex-shrink-0 d-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button wire:click="resolveOccurrence({{ $occurrence->id }})" class="p-1 rounded hover:bg-[var(--ui-success)]/10 text-[var(--ui-muted)] hover:text-[var(--ui-success)] transition-colors" title="Resolve">
+                                    @svg('heroicon-o-check-circle', 'w-4 h-4')
+                                </button>
+                                <button wire:click="ignoreOccurrence({{ $occurrence->id }})" class="p-1 rounded hover:bg-[var(--ui-muted-5)] text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors" title="Ignorieren">
+                                    @svg('heroicon-o-eye-slash', 'w-4 h-4')
+                                </button>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         {{-- Issues --}}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {{-- Letzte offene Issues --}}
@@ -292,4 +352,66 @@
             </div>
         </div>
     </x-ui-page-container>
+
+    {{-- Error Tracking Settings Modal --}}
+    @if($showErrorSettings && $errorSettings)
+        <x-ui-modal wire:model="showErrorSettings" title="Error Tracking Settings">
+            <div class="space-y-6">
+                {{-- Master Toggle --}}
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" wire:model.live="errorSettings.enabled"
+                           class="w-4 h-4 rounded border-[var(--ui-border)] text-[var(--ui-primary)] focus:ring-[var(--ui-primary)] focus:ring-offset-0">
+                    <span class="text-sm font-medium text-[var(--ui-secondary)]">Error Tracking aktivieren</span>
+                </label>
+
+                {{-- HTTP Codes --}}
+                <div>
+                    <h4 class="text-sm font-semibold text-[var(--ui-secondary)] mb-3">HTTP Status Codes</h4>
+                    <div class="d-flex items-center gap-2 flex-wrap">
+                        @foreach($availableHttpCodes as $code)
+                            <button type="button"
+                                    wire:click="toggleHttpCode({{ $code }})"
+                                    class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors {{ $this->isHttpCodeEnabled($code) ? 'bg-[var(--ui-primary)] text-white' : 'bg-[var(--ui-muted-5)] text-[var(--ui-muted)] border border-[var(--ui-border)]/40' }}">
+                                {{ $code }}
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Dedupe Window --}}
+                <x-ui-input-text wire:model="errorSettings.dedupe_window_hours" label="Deduplizierung (Stunden)" type="number" min="1" max="720" />
+
+                {{-- Options --}}
+                <div class="space-y-3">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" wire:model.live="errorSettings.capture_console_errors"
+                               class="w-4 h-4 rounded border-[var(--ui-border)] text-[var(--ui-primary)] focus:ring-[var(--ui-primary)] focus:ring-offset-0">
+                        <span class="text-sm text-[var(--ui-secondary)]">Console/Scheduler Errors erfassen</span>
+                    </label>
+
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" wire:model.live="errorSettings.auto_create_issue"
+                               class="w-4 h-4 rounded border-[var(--ui-border)] text-[var(--ui-primary)] focus:ring-[var(--ui-primary)] focus:ring-offset-0">
+                        <span class="text-sm text-[var(--ui-secondary)]">Issues automatisch erstellen (Bug-Board)</span>
+                    </label>
+
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" wire:model.live="errorSettings.include_stack_trace"
+                               class="w-4 h-4 rounded border-[var(--ui-border)] text-[var(--ui-primary)] focus:ring-[var(--ui-primary)] focus:ring-offset-0">
+                        <span class="text-sm text-[var(--ui-secondary)]">Stack Trace erfassen</span>
+                    </label>
+
+                    @if($errorSettings->include_stack_trace)
+                        <x-ui-input-text wire:model="errorSettings.stack_trace_limit" label="Stack Trace Limit (Frames)" type="number" min="1" max="200" />
+                    @endif
+                </div>
+            </div>
+            <x-slot name="footer">
+                <div class="d-flex items-center justify-end gap-2">
+                    <x-ui-button variant="secondary-outline" wire:click="$set('showErrorSettings', false)">Abbrechen</x-ui-button>
+                    <x-ui-button variant="primary" wire:click="saveErrorSettings">Speichern</x-ui-button>
+                </div>
+            </x-slot>
+        </x-ui-modal>
+    @endif
 </x-ui-page>

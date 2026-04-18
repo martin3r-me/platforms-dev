@@ -5,6 +5,8 @@ namespace Platform\Dev\Livewire\Package;
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use Platform\Dev\Models\DevPackage;
+use Platform\Dev\Models\DevPackageErrorSettings;
+use Platform\Dev\Models\DevErrorOccurrence;
 use Platform\Dev\Models\DevIssue;
 use Platform\Integrations\Models\IntegrationGithubCommit;
 use Platform\Integrations\Models\IntegrationGithubPullRequest;
@@ -55,6 +57,72 @@ class Show extends Component
     public function cancelEditPackage(): void
     {
         $this->editingPackage = false;
+    }
+
+    // --- Error Tracking Settings ---
+
+    public bool $showErrorSettings = false;
+    public ?DevPackageErrorSettings $errorSettings = null;
+    public array $availableHttpCodes = [400, 401, 403, 404, 500, 502, 503, 504];
+
+    public function openErrorSettings(): void
+    {
+        $this->errorSettings = DevPackageErrorSettings::getOrCreateForPackage($this->package);
+        $this->showErrorSettings = true;
+    }
+
+    public function saveErrorSettings(): void
+    {
+        if (!$this->errorSettings) {
+            return;
+        }
+
+        $this->errorSettings->save();
+        $this->showErrorSettings = false;
+    }
+
+    public function toggleHttpCode(int $code): void
+    {
+        if (!$this->errorSettings) {
+            return;
+        }
+
+        $codes = $this->errorSettings->capture_codes ?? DevPackageErrorSettings::DEFAULT_CAPTURE_CODES;
+
+        if (in_array($code, $codes, true)) {
+            $codes = array_values(array_diff($codes, [$code]));
+        } else {
+            $codes[] = $code;
+        }
+
+        $this->errorSettings->capture_codes = $codes;
+    }
+
+    public function isHttpCodeEnabled(int $code): bool
+    {
+        if (!$this->errorSettings) {
+            return false;
+        }
+
+        $codes = $this->errorSettings->capture_codes ?? DevPackageErrorSettings::DEFAULT_CAPTURE_CODES;
+
+        return in_array($code, $codes, true);
+    }
+
+    public function resolveOccurrence(int $occurrenceId): void
+    {
+        $occurrence = DevErrorOccurrence::where('dev_package_id', $this->package->id)->find($occurrenceId);
+        if ($occurrence) {
+            $occurrence->resolve(Auth::id());
+        }
+    }
+
+    public function ignoreOccurrence(int $occurrenceId): void
+    {
+        $occurrence = DevErrorOccurrence::where('dev_package_id', $this->package->id)->find($occurrenceId);
+        if ($occurrence) {
+            $occurrence->ignore();
+        }
     }
 
     public function rendered(): void
@@ -158,6 +226,15 @@ class Show extends Component
                 ->get()
             : collect();
 
+        // Error occurrences
+        $errorOccurrences = DevErrorOccurrence::where('dev_package_id', $this->package->id)
+            ->whereIn('status', [DevErrorOccurrence::STATUS_OPEN, DevErrorOccurrence::STATUS_ACKNOWLEDGED])
+            ->orderByDesc('last_seen_at')
+            ->limit(20)
+            ->get();
+
+        $errorSettings = $this->package->errorSettings;
+
         // Team members for user assignment
         $teamUsers = Auth::user()
             ->currentTeam
@@ -177,6 +254,8 @@ class Show extends Component
             'recentCommits' => $recentCommits,
             'openPullRequests' => $openPullRequests,
             'teamUsers' => $teamUsers,
+            'errorOccurrences' => $errorOccurrences,
+            'errorSettingsEnabled' => $errorSettings?->enabled ?? false,
         ])->layout('platform::layouts.app');
     }
 }
