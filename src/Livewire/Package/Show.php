@@ -5,22 +5,15 @@ namespace Platform\Dev\Livewire\Package;
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use Platform\Dev\Models\DevPackage;
-use Platform\Dev\Models\DevBoard;
 use Platform\Dev\Models\DevIssue;
 
 class Show extends Component
 {
     public DevPackage $package;
-    public string $activeTab = 'feature';
 
     public function mount(DevPackage $package): void
     {
         $this->package = $package;
-
-        $firstBoard = $package->boards()->first();
-        if ($firstBoard) {
-            $this->activeTab = $firstBoard->type instanceof \BackedEnum ? $firstBoard->type->value : $firstBoard->type;
-        }
     }
 
     public function rendered(): void
@@ -67,50 +60,32 @@ class Show extends Component
         ]);
     }
 
-    public function setTab(string $tab): void
-    {
-        $this->activeTab = $tab;
-    }
-
     public function render()
     {
         $boards = $this->package->boards()
-            ->with(['slots' => fn ($q) => $q->orderBy('order')])
+            ->withCount(['issues as open_issues_count' => fn ($q) => $q->where('status', 'open')])
             ->orderBy('order')
             ->get();
 
-        $activeBoard = $boards->first(function ($b) {
-            $type = $b->type instanceof \BackedEnum ? $b->type->value : $b->type;
-            return $type === $this->activeTab;
-        }) ?? $boards->first();
+        $totalOpen = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $this->package->id))
+            ->where('status', 'open')
+            ->count();
 
-        $boardSlots = collect();
-        $backlogIssues = collect();
+        $totalDone = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $this->package->id))
+            ->where('is_done', true)
+            ->count();
 
-        if ($activeBoard) {
-            $boardSlots = $activeBoard->slots()
-                ->with(['issues' => fn ($q) => $q->where('status', 'open')->orderBy('slot_order')])
-                ->orderBy('order')
-                ->get();
-
-            $backlogIssues = DevIssue::where('dev_board_id', $activeBoard->id)
-                ->whereNull('dev_board_slot_id')
-                ->where('status', 'open')
-                ->orderBy('order')
-                ->get();
-        }
-
-        $discussions = $this->package->discussions()
-            ->withCount('replies')
-            ->limit(5)
-            ->get();
+        $totalOverdue = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $this->package->id))
+            ->where('status', 'open')
+            ->whereNotNull('due_date')
+            ->where('due_date', '<', now())
+            ->count();
 
         return view('dev::livewire.package.show', [
             'boards' => $boards,
-            'activeBoard' => $activeBoard,
-            'boardSlots' => $boardSlots,
-            'backlogIssues' => $backlogIssues,
-            'discussions' => $discussions,
+            'totalOpen' => $totalOpen,
+            'totalDone' => $totalDone,
+            'totalOverdue' => $totalOverdue,
         ])->layout('platform::layouts.app');
     }
 }
