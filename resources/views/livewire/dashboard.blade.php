@@ -128,15 +128,14 @@
         <x-ui-modal wire:model="showActivateModal" title="Package aktivieren">
             <div class="space-y-4">
                 @if($availableRepos->isNotEmpty())
-                    <x-ui-input-select name="selectedRepoId" wire:model.live="selectedRepoId" label="GitHub Repository">
-                        <option value="">-- Ohne Repository --</option>
+                    <x-ui-input-select name="selectedRepoId" wire:model.live="selectedRepoId" label="GitHub Repository" :nullable="true" nullLabel="-- Ohne Repository --">
                         @foreach($availableRepos as $repo)
-                            <option value="{{ $repo->id }}">{{ $repo->full_name }}{{ $repo->is_private ? ' (privat)' : '' }}</option>
+                            <option value="{{ $repo->id }}">{{ $repo->full_name }}{{ $repo->is_private ? ' (privat)' : '' }}{{ $repo->language ? ' · '.$repo->language : '' }}</option>
                         @endforeach
                     </x-ui-input-select>
                 @else
                     <div class="p-3 rounded-lg bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/40">
-                        <p class="text-xs text-[var(--ui-muted)]">Keine GitHub-Repositories verfuegbar. Verbinde GitHub unter Integrationen, um Repos auszuwaehlen.</p>
+                        <p class="text-xs text-[var(--ui-muted)]">Keine GitHub-Repositories verfuegbar. Verbinde GitHub unter Integrationen und synchronisiere deine Repos.</p>
                     </div>
                 @endif
                 <x-ui-input-text wire:model="activatePackageName" label="Name" placeholder="z.B. Platform Sheets" required />

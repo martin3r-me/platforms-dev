@@ -72,28 +72,14 @@ class Dashboard extends Component
         try {
             $user = Auth::user();
 
-            // Get GitHub connections accessible to the user (owner or granted)
-            $connectionIds = \Platform\Integrations\Models\IntegrationConnection::query()
-                ->whereHas('integration', fn ($q) => $q->where('key', 'github'))
-                ->where(function ($q) use ($user) {
-                    $q->where('owner_user_id', $user->id)
-                      ->orWhereHas('grants', fn ($g) => $g->where('grantee_user_id', $user->id));
-                })
-                ->where('status', 'active')
-                ->pluck('id');
-
-            if ($connectionIds->isEmpty()) {
-                return collect();
-            }
-
             // Already linked repo IDs in this team
             $linkedRepoIds = DevPackage::where('team_id', $user->currentTeam->id)
                 ->whereNotNull('github_repo_id')
                 ->pluck('github_repo_id');
 
-            return \Platform\Integrations\Models\IntegrationGithubRepo::query()
-                ->whereIn('connection_id', $connectionIds)
-                ->where('is_active', true)
+            // User's synced GitHub repos (same pattern as Helpdesk)
+            return \Platform\Integrations\Models\IntegrationsGithubRepository::query()
+                ->where('user_id', $user->id)
                 ->whereNotIn('id', $linkedRepoIds)
                 ->orderBy('full_name')
                 ->get();
@@ -118,7 +104,6 @@ class Dashboard extends Component
             ->where('status', 'open')
             ->count();
 
-        // Per-package stats
         $packageStats = [];
         foreach ($packages as $package) {
             $openFeatures = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $package->id)->where('type', 'feature'))

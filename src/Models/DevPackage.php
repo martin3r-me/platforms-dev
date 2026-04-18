@@ -52,7 +52,7 @@ class DevPackage extends Model
 
     public function githubRepo(): BelongsTo
     {
-        return $this->belongsTo(\Platform\Integrations\Models\IntegrationGithubRepo::class, 'github_repo_id');
+        return $this->belongsTo(\Platform\Integrations\Models\IntegrationsGithubRepository::class, 'github_repo_id');
     }
 
     public function boards(): HasMany

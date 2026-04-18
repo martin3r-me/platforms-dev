@@ -43,7 +43,7 @@ class ActivatePackageTool implements ToolContract, ToolMetadataContract
                 ],
                 'github_repo_id' => [
                     'type' => 'integer',
-                    'description' => 'Optional: FK zu integration_github_repos. Der full_name wird automatisch aufgeloest.',
+                    'description' => 'Optional: FK zu integrations_github_repositories. Der full_name wird automatisch aufgeloest.',
                 ],
                 'icon' => [
                     'type' => 'string',
@@ -77,7 +77,7 @@ class ActivatePackageTool implements ToolContract, ToolMetadataContract
             $githubRepoFullName = null;
             if ($githubRepoId) {
                 try {
-                    $repo = \Platform\Integrations\Models\IntegrationGithubRepo::find($githubRepoId);
+                    $repo = \Platform\Integrations\Models\IntegrationsGithubRepository::find($githubRepoId);
                     if ($repo) {
                         $githubRepoFullName = $repo->full_name;
                     }
