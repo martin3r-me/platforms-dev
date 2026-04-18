@@ -6,6 +6,7 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use Platform\Dev\Models\DevPackage;
 use Platform\Dev\Models\DevBoard;
+use Platform\Dev\Models\DevBoardSlot;
 use Platform\Dev\Models\DevIssue;
 use Platform\Dev\Services\DevIssueService;
 
@@ -13,86 +14,165 @@ class Board extends Component
 {
     public DevPackage $package;
     public DevBoard $board;
-
-    public string $newIssueTitle = '';
-    public ?int $newIssueSlotId = null;
+    public $groups;
+    public bool $showDone = false;
 
     public function mount(DevPackage $package, DevBoard $board): void
     {
         $this->package = $package;
         $this->board = $board;
+        $this->loadGroups();
     }
 
-    public function createIssue(): void
+    public function loadGroups(): void
+    {
+        $this->groups = collect();
+        $eagerLoad = ['userInCharge', 'createdBy'];
+
+        // Backlog (Issues ohne Slot, nicht erledigt)
+        $backlog = new DevBoardSlot();
+        $backlog->id = 'backlog';
+        $backlog->name = 'BACKLOG';
+        $backlog->isBacklog = true;
+        $backlog->tasks = $this->board->issues()
+            ->with($eagerLoad)
+            ->whereNull('dev_board_slot_id')
+            ->where('is_done', false)
+            ->orderByDesc('created_at')
+            ->get();
+        $this->groups->push($backlog);
+
+        // Slots
+        $slots = $this->board->slots()->orderBy('order')->get();
+        $slots->each(function ($slot) use ($eagerLoad) {
+            $slot->isBacklog = false;
+            $slot->tasks = $slot->issues()
+                ->with($eagerLoad)
+                ->where('is_done', false)
+                ->orderBy('slot_order')
+                ->get();
+            $this->groups->push($slot);
+        });
+
+        // Erledigt
+        $doneGroup = new DevBoardSlot();
+        $doneGroup->id = 'done';
+        $doneGroup->name = 'ERLEDIGT';
+        $doneGroup->isDoneGroup = true;
+        $doneGroup->tasks = $this->board->issues()
+            ->with($eagerLoad)
+            ->where('is_done', true)
+            ->orderByDesc('done_at')
+            ->get();
+        $this->groups->push($doneGroup);
+    }
+
+    public function createIssue(?string $slotId = null): void
     {
         $user = Auth::user();
         $team = $user->currentTeam;
-
-        if (!$team || trim($this->newIssueTitle) === '') {
+        if (!$team) {
             return;
         }
+
+        $resolvedSlotId = ($slotId === 'backlog' || $slotId === null || $slotId === 'null')
+            ? null
+            : (int) $slotId;
 
         $service = new DevIssueService();
         $service->createIssue([
             'team_id' => $team->id,
             'created_by_user_id' => $user->id,
             'dev_board_id' => $this->board->id,
-            'dev_board_slot_id' => $this->newIssueSlotId,
-            'title' => trim($this->newIssueTitle),
+            'dev_board_slot_id' => $resolvedSlotId,
+            'title' => 'Neues Issue',
         ]);
 
-        $this->newIssueTitle = '';
-        $this->newIssueSlotId = null;
+        $this->loadGroups();
     }
 
-    public function moveIssue(int $issueId, ?int $slotId): void
+    public function createBoardSlot(): void
     {
-        $issue = DevIssue::where('dev_board_id', $this->board->id)->find($issueId);
-        if (!$issue) {
-            return;
-        }
+        DevBoardSlot::create([
+            'team_id' => $this->board->team_id,
+            'created_by_user_id' => Auth::id(),
+            'dev_board_id' => $this->board->id,
+            'name' => 'Neue Spalte',
+            'order' => $this->board->slots()->count(),
+        ]);
 
-        $service = new DevIssueService();
-        $service->moveToSlot($issue, $slotId);
+        $this->loadGroups();
     }
 
-    public function closeIssue(int $issueId): void
+    public function updateIssueOrder($groups): void
     {
-        $issue = DevIssue::where('dev_board_id', $this->board->id)->find($issueId);
-        if ($issue) {
-            $issue->close();
+        foreach ($groups as $group) {
+            $slotId = ($group['value'] === 'null' || $group['value'] === 'backlog' || (int) $group['value'] === 0)
+                ? null
+                : (int) $group['value'];
+
+            foreach ($group['items'] as $item) {
+                $issue = DevIssue::find($item['value']);
+                if (!$issue) {
+                    continue;
+                }
+
+                $newSlotId = null;
+                if ($slotId !== null && $slotId !== 'done') {
+                    $slot = $this->board->slots()->find($slotId);
+                    if ($slot) {
+                        $newSlotId = $slot->id;
+                    }
+                }
+
+                $issue->dev_board_slot_id = $newSlotId;
+                $issue->slot_order = $item['order'];
+                $issue->order = $item['order'];
+                $issue->save();
+            }
         }
+
+        $this->loadGroups();
     }
 
-    public function reopenIssue(int $issueId): void
+    public function updateSlotOrder($groups): void
     {
-        $issue = DevIssue::where('dev_board_id', $this->board->id)->find($issueId);
-        if ($issue) {
-            $issue->reopen();
+        foreach ($groups as $slotGroup) {
+            $slot = DevBoardSlot::find($slotGroup['value']);
+            if ($slot) {
+                $slot->order = $slotGroup['order'];
+                $slot->save();
+            }
         }
+
+        $this->loadGroups();
+    }
+
+    public function deleteIssue(int $issueId): void
+    {
+        $issue = DevIssue::where('dev_board_id', $this->board->id)->findOrFail($issueId);
+        $issue->delete();
+        $this->loadGroups();
+    }
+
+    public function toggleShowDone(): void
+    {
+        $this->showDone = !$this->showDone;
     }
 
     public function render()
     {
-        $slots = $this->board->slots()
-            ->with(['issues' => fn ($q) => $q->where('status', 'open')->orderBy('slot_order')])
-            ->orderBy('order')
-            ->get();
+        $openCount = $this->groups
+            ->filter(fn ($g) => !($g->isDoneGroup ?? false))
+            ->sum(fn ($g) => $g->tasks->count());
 
-        $backlogIssues = DevIssue::where('dev_board_id', $this->board->id)
-            ->whereNull('dev_board_slot_id')
-            ->where('status', 'open')
-            ->orderBy('order')
-            ->get();
-
-        $closedCount = DevIssue::where('dev_board_id', $this->board->id)
-            ->where('status', 'closed')
-            ->count();
+        $doneCount = $this->groups
+            ->filter(fn ($g) => $g->isDoneGroup ?? false)
+            ->sum(fn ($g) => $g->tasks->count());
 
         return view('dev::livewire.package.board', [
-            'slots' => $slots,
-            'backlogIssues' => $backlogIssues,
-            'closedCount' => $closedCount,
+            'openCount' => $openCount,
+            'doneCount' => $doneCount,
         ])->layout('platform::layouts.app');
     }
 }

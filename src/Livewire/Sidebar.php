@@ -27,7 +27,11 @@ class Sidebar extends Component
         $teamId = $user->currentTeam->id ?? null;
 
         $activePackages = $teamId
-            ? DevPackage::where('team_id', $teamId)->where('status', 'active')->orderBy('order')->get()
+            ? DevPackage::where('team_id', $teamId)
+                ->where('status', 'active')
+                ->with(['boards' => fn ($q) => $q->orderBy('order')])
+                ->orderBy('order')
+                ->get()
             : collect();
 
         $archivedPackages = $teamId
