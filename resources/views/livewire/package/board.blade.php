@@ -1,6 +1,6 @@
 <x-ui-page>
     <x-slot name="navbar">
-        <x-ui-page-navbar title="{{ $board->name }}" icon="heroicon-o-view-columns" />
+        <x-ui-page-navbar title="{{ $board->name }}" />
     </x-slot>
 
     <x-slot name="actionbar">
@@ -10,9 +10,9 @@
             ['label' => $board->name],
         ]">
             <x-slot name="left">
-                <x-ui-button variant="ghost" size="sm" wire:click="toggleShowDone">
-                    @svg('heroicon-o-check-circle', 'w-4 h-4')
-                    <span>{{ $showDone ? 'Erledigte ausblenden' : 'Erledigte anzeigen' }}</span>
+                <x-ui-button variant="ghost" size="sm" x-data @click="$dispatch('open-modal-board-settings', { boardId: {{ $board->id }} })">
+                    @svg('heroicon-o-cog-6-tooth', 'w-4 h-4')
+                    <span>Einstellungen</span>
                 </x-ui-button>
             </x-slot>
             <x-ui-button variant="ghost" size="sm" wire:click="createBoardSlot">
@@ -23,83 +23,134 @@
     </x-slot>
 
     <x-slot name="sidebar">
-        <x-ui-page-sidebar title="Board-Uebersicht" width="w-80" :defaultOpen="true" side="left">
+        <x-ui-page-sidebar title="Board-Übersicht" width="w-80" :defaultOpen="true" side="left">
             <div class="p-6 space-y-6">
-                {{-- Board-Info --}}
+				{{-- Board-Info --}}
                 <div>
                     <h3 class="text-lg font-semibold text-[var(--ui-secondary)] mb-2">{{ $board->name }}</h3>
-                    @if($board->description)
-                        <div class="text-sm text-[var(--ui-muted)]">{{ $board->description }}</div>
-                    @endif
+                    <div class="text-sm text-[var(--ui-muted)]">{{ $board->description ?? 'Keine Beschreibung' }}</div>
                 </div>
 
-                {{-- Statistiken --}}
+				{{-- Ansicht --}}
+				<div>
+					<h3 class="text-sm font-bold text-[var(--ui-secondary)] uppercase tracking-wider mb-4">Ansicht</h3>
+					<div class="space-y-2">
+						<label class="flex items-center gap-3 cursor-pointer">
+							<input
+								type="checkbox"
+								wire:click="toggleShowDone"
+								@if($showDone) checked @endif
+								class="w-4 h-4 rounded border-[var(--ui-border)] text-[var(--ui-primary)] focus:ring-[var(--ui-primary)] focus:ring-offset-0"
+							>
+							<span class="text-sm text-[var(--ui-secondary)]">Erledigte Issues anzeigen</span>
+						</label>
+					</div>
+				</div>
+
+				{{-- Statistiken --}}
                 <div class="grid grid-cols-2 gap-2">
-                    <x-ui-dashboard-tile title="Offen" :count="$openCount" icon="clock" variant="warning" size="sm" />
-                    <x-ui-dashboard-tile title="Erledigt" :count="$doneCount" icon="check-circle" variant="success" size="sm" />
-                </div>
+					<x-ui-dashboard-tile title="Offen" :count="$groups->filter(fn($g) => !($g->isDoneGroup ?? false))->sum(fn($g) => $g->tasks->count())" icon="clock" variant="warning" size="sm" />
+					<x-ui-dashboard-tile title="Gesamt" :count="$groups->flatMap(fn($g) => $g->tasks)->count()" icon="document-text" variant="secondary" size="sm" />
+					<x-ui-dashboard-tile title="Erledigt" :count="$groups->filter(fn($g) => $g->isDoneGroup ?? false)->sum(fn($g) => $g->tasks->count())" icon="check-circle" variant="success" size="sm" />
+					<x-ui-dashboard-tile title="Ohne Fälligkeit" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => !$t->due_date)->count()" icon="calendar" variant="neutral" size="sm" />
+					<x-ui-dashboard-tile title="Hohe Priorität" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => ($t->priority instanceof \BackedEnum ? $t->priority->value : $t->priority) === 'high')->count()" icon="fire" variant="danger" size="sm" />
+					<x-ui-dashboard-tile title="Überfällig" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => $t->due_date && $t->due_date->isPast() && !$t->is_done)->count()" icon="exclamation-circle" variant="danger" size="sm" />
+				</div>
 
-                {{-- Erledigte Issues --}}
-                @php $completedIssues = $groups->filter(fn($g) => $g->isDoneGroup ?? false)->flatMap(fn($g) => $g->tasks); @endphp
-                @if($completedIssues->count() > 0)
-                    <div>
+				{{-- Erledigte Issues --}}
+				@php $completedIssues = $groups->filter(fn($g) => $g->isDoneGroup ?? false)->flatMap(fn($g) => $g->tasks); @endphp
+				@if($completedIssues->count() > 0)
+					<div>
                         <h4 class="font-medium text-[var(--ui-secondary)] mb-3">Erledigte Issues ({{ $completedIssues->count() }})</h4>
                         <div class="space-y-1 max-h-60 overflow-y-auto">
-                            @foreach($completedIssues->take(10) as $issue)
+							@foreach($completedIssues->take(10) as $issue)
                                 <a href="{{ route('dev.packages.issues.show', [$package, $issue]) }}" class="block p-2 rounded text-sm border border-[var(--ui-border)]/60 bg-[var(--ui-muted-5)] hover:bg-[var(--ui-primary-5)] transition" wire:navigate>
-                                    <div class="d-flex items-center gap-2">
+									<div class="d-flex items-center gap-2">
                                         <x-heroicon-o-check-circle class="w-4 h-4 text-[var(--ui-success)]"/>
-                                        <span class="truncate">{{ $issue->title }}</span>
-                                    </div>
-                                </a>
-                            @endforeach
+										<span class="truncate">{{ $issue->title }}</span>
+									</div>
+								</a>
+							@endforeach
                             @if($completedIssues->count() > 10)
                                 <div class="text-xs text-[var(--ui-muted)] italic text-center">+{{ $completedIssues->count() - 10 }} weitere</div>
-                            @endif
+							@endif
+						</div>
+					</div>
+				@else
+                    <div class="text-sm text-[var(--ui-muted)] italic">Noch keine erledigten Issues</div>
+				@endif
+            </div>
+		</x-ui-page-sidebar>
+    </x-slot>
+
+    <x-slot name="activity">
+        <x-ui-page-sidebar title="Aktivitäten" width="w-80" defaultOpen="false" storeKey="activityOpen" side="right">
+            <div class="p-4 space-y-4">
+                <div class="text-sm text-[var(--ui-muted)]">Letzte Aktivitäten</div>
+                <div class="space-y-3 text-sm">
+                    @foreach(($activities ?? []) as $activity)
+                        <div class="p-2 rounded border border-[var(--ui-border)]/60 bg-[var(--ui-muted-5)]">
+                            <div class="font-medium text-[var(--ui-secondary)] truncate">{{ $activity['title'] ?? 'Aktivität' }}</div>
+                            <div class="text-[var(--ui-muted)]">{{ $activity['time'] ?? '' }}</div>
                         </div>
-                    </div>
-                @endif
+                    @endforeach
+                </div>
             </div>
         </x-ui-page-sidebar>
     </x-slot>
 
-    {{-- Kanban Board --}}
+    <!-- Kanban-Board (Planner-kompatibel) -->
     <x-ui-kanban-container class="h-full" sortable="updateSlotOrder" sortable-group="updateIssueOrder">
-        @foreach($groups->filter(fn ($g) => !($g->isDoneGroup ?? false)) as $column)
+		{{-- Mittlere Spalten (scrollable) --}}
+		@foreach($groups->filter(fn ($g) => !($g->isDoneGroup ?? false)) as $column)
             @php $isBacklog = $column->isBacklog ?? false; @endphp
-            <x-ui-kanban-column :sortable-id="$column->id" :scrollable="true">
+			<x-ui-kanban-column :sortable-id="$column->id" :scrollable="true">
                 <x-slot name="title">
                     <span class="flex items-center gap-1.5">
-                        {{ $column->name }}
-                        <span class="text-[var(--ui-muted)]">({{ $column->tasks->count() }})</span>
+                        {{ $column->label ?? $column->name ?? 'Spalte' }}
                     </span>
                 </x-slot>
-                <x-slot name="headerActions">
-                    <button
-                        wire:click="createIssue('{{ $column->id }}')"
-                        class="text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors"
-                        title="Neues Issue">
-                        @svg('heroicon-o-plus-circle', 'w-4 h-4')
-                    </button>
-                </x-slot>
+				<x-slot name="headerActions">
+                    @if(!$isBacklog)
+                        <button
+                            wire:click="createIssue('{{ $column->id }}')"
+                            class="text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors"
+                            title="Neues Issue">
+                            @svg('heroicon-o-plus-circle', 'w-4 h-4')
+                        </button>
+                        <button
+                            @click="$dispatch('open-modal-board-slot-settings', { boardSlotId: {{ $column->id }} })"
+                            class="text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors"
+                            title="Einstellungen">
+                            @svg('heroicon-o-cog-6-tooth', 'w-4 h-4')
+                        </button>
+                    @else
+                        <button
+                            wire:click="createIssue(null)"
+                            class="text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors"
+                            title="Issue in Backlog erstellen">
+                            @svg('heroicon-o-plus-circle', 'w-4 h-4')
+                        </button>
+                    @endif
+				</x-slot>
 
-                @foreach($column->tasks as $issue)
-                    @include('dev::livewire.package.partials.issue-card', ['issue' => $issue])
-                @endforeach
-            </x-ui-kanban-column>
-        @endforeach
+				@foreach($column->tasks as $issue)
+					@include('dev::livewire.package.partials.issue-card', ['issue' => $issue])
+				@endforeach
+			</x-ui-kanban-column>
+		@endforeach
 
-        {{-- Erledigt-Spalte --}}
-        @if($showDone)
-            @php $doneGroup = $groups->first(fn($g) => ($g->isDoneGroup ?? false)); @endphp
-            @if($doneGroup)
-                <x-ui-kanban-column :sortable-id="null" :scrollable="true" :muted="true">
-                    <x-slot name="title">ERLEDIGT ({{ $doneGroup->tasks->count() }})</x-slot>
-                    @foreach($doneGroup->tasks as $issue)
-                        @include('dev::livewire.package.partials.issue-card', ['issue' => $issue])
-                    @endforeach
-                </x-ui-kanban-column>
-            @endif
-        @endif
+		{{-- ERLEDIGT Spalte (muted, nicht sortierbar als Gruppe) - nur anzeigen wenn $showDone aktiv --}}
+		@if($showDone)
+			@php $doneGroup = $groups->first(fn($g) => ($g->isDoneGroup ?? false)); @endphp
+			@if($doneGroup)
+				<x-ui-kanban-column :title="($doneGroup->label ?? 'Erledigt')" :sortable-id="null" :scrollable="true" :muted="true">
+					@foreach($doneGroup->tasks as $issue)
+						@include('dev::livewire.package.partials.issue-card', ['issue' => $issue])
+					@endforeach
+				</x-ui-kanban-column>
+			@endif
+		@endif
     </x-ui-kanban-container>
+
 </x-ui-page>

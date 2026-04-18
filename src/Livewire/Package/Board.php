@@ -50,12 +50,13 @@ class Board extends Component
     public function loadGroups(): void
     {
         $this->groups = collect();
-        $eagerLoad = ['userInCharge', 'createdBy'];
+        $eagerLoad = ['userInCharge', 'createdBy', 'board'];
 
-        // Backlog (Issues ohne Slot, nicht erledigt)
+        // Backlog/Inbox (Issues ohne Slot, nicht erledigt)
         $backlog = new DevBoardSlot();
         $backlog->id = 'backlog';
         $backlog->name = 'BACKLOG';
+        $backlog->label = 'BACKLOG / Inbox';
         $backlog->isBacklog = true;
         $backlog->tasks = $this->board->issues()
             ->with($eagerLoad)
@@ -68,11 +69,12 @@ class Board extends Component
         // Slots
         $slots = $this->board->slots()->orderBy('order')->get();
         $slots->each(function ($slot) use ($eagerLoad) {
+            $slot->label = $slot->name;
             $slot->isBacklog = false;
             $slot->tasks = $slot->issues()
                 ->with($eagerLoad)
                 ->where('is_done', false)
-                ->orderBy('slot_order')
+                ->orderBy('created_at', 'desc')
                 ->get();
             $this->groups->push($slot);
         });
@@ -81,6 +83,7 @@ class Board extends Component
         $doneGroup = new DevBoardSlot();
         $doneGroup->id = 'done';
         $doneGroup->name = 'ERLEDIGT';
+        $doneGroup->label = 'ERLEDIGT';
         $doneGroup->isDoneGroup = true;
         $doneGroup->tasks = $this->board->issues()
             ->with($eagerLoad)
