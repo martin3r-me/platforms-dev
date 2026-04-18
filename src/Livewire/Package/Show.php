@@ -16,6 +16,15 @@ class Show extends Component
 {
     public DevPackage $package;
 
+    protected $rules = [
+        'errorSettings.enabled' => 'boolean',
+        'errorSettings.capture_console_errors' => 'boolean',
+        'errorSettings.auto_create_issue' => 'boolean',
+        'errorSettings.include_stack_trace' => 'boolean',
+        'errorSettings.dedupe_window_hours' => 'integer|min:1|max:720',
+        'errorSettings.stack_trace_limit' => 'integer|min:1|max:200',
+    ];
+
     // Package editing
     public bool $editingPackage = false;
     public string $editPackageName = '';
