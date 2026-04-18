@@ -17,6 +17,10 @@ class Issue extends Component
     public string $editTitle = '';
     public string $editDescription = '';
     public string $editPriority = 'normal';
+    public ?int $editStoryPoints = null;
+
+    // Acceptance criteria (DoD)
+    public string $newCriterion = '';
 
     public function mount(DevPackage $package, DevIssue $issue): void
     {
@@ -80,6 +84,7 @@ class Issue extends Component
             'source' => 'dev.issue.view',
             'meta' => [
                 'priority' => $this->issue->priority instanceof \BackedEnum ? $this->issue->priority->value : $this->issue->priority,
+                'story_points' => $this->issue->story_points,
                 'due_date' => $this->issue->due_date?->toIso8601String(),
                 'is_done' => $this->issue->is_done,
                 'package' => $this->package->name,
@@ -94,6 +99,7 @@ class Issue extends Component
         $this->editTitle = $this->issue->title;
         $this->editDescription = $this->issue->description ?? '';
         $this->editPriority = $this->issue->priority instanceof \BackedEnum ? $this->issue->priority->value : $this->issue->priority;
+        $this->editStoryPoints = $this->issue->story_points;
         $this->editing = true;
     }
 
@@ -108,6 +114,7 @@ class Issue extends Component
             'title' => trim($this->editTitle),
             'description' => trim($this->editDescription) ?: null,
             'priority' => $this->editPriority,
+            'story_points' => $this->editStoryPoints ?: null,
         ]);
 
         $this->editing = false;
@@ -128,11 +135,52 @@ class Issue extends Component
         $this->issue->refresh();
     }
 
+    // --- Acceptance Criteria (DoD) ---
+
+    public function addCriterion(): void
+    {
+        if (trim($this->newCriterion) === '') {
+            return;
+        }
+
+        $criteria = $this->issue->acceptance_criteria ?? [];
+        $criteria[] = [
+            'text' => trim($this->newCriterion),
+            'done' => false,
+        ];
+
+        $this->issue->update(['acceptance_criteria' => $criteria]);
+        $this->newCriterion = '';
+    }
+
+    public function toggleCriterion(int $index): void
+    {
+        $criteria = $this->issue->acceptance_criteria ?? [];
+        if (isset($criteria[$index])) {
+            $criteria[$index]['done'] = !$criteria[$index]['done'];
+            $this->issue->update(['acceptance_criteria' => $criteria]);
+        }
+    }
+
+    public function removeCriterion(int $index): void
+    {
+        $criteria = $this->issue->acceptance_criteria ?? [];
+        unset($criteria[$index]);
+        $this->issue->update(['acceptance_criteria' => array_values($criteria)]);
+    }
+
     public function render()
     {
         $this->issue->load(['board', 'slot', 'userInCharge', 'createdBy']);
 
+        $criteria = $this->issue->acceptance_criteria ?? [];
+        $criteriaTotal = count($criteria);
+        $criteriaDone = collect($criteria)->where('done', true)->count();
+
         return view('dev::livewire.package.issue', [
+            'criteria' => $criteria,
+            'criteriaTotal' => $criteriaTotal,
+            'criteriaDone' => $criteriaDone,
         ])->layout('platform::layouts.app');
     }
 }

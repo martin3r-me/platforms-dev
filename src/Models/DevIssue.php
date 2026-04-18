@@ -26,8 +26,10 @@ class DevIssue extends Model
         'title',
         'description',
         'priority',
+        'story_points',
         'status',
         'labels',
+        'acceptance_criteria',
         'user_in_charge_id',
         'order',
         'slot_order',
@@ -38,7 +40,9 @@ class DevIssue extends Model
 
     protected $casts = [
         'priority' => IssuePriority::class,
+        'story_points' => 'integer',
         'labels' => 'array',
+        'acceptance_criteria' => 'array',
         'is_done' => 'boolean',
         'done_at' => 'datetime',
         'due_date' => 'date',
