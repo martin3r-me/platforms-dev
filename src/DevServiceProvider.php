@@ -76,6 +76,12 @@ class DevServiceProvider extends ServiceProvider
 
         $this->registerLivewireComponents();
         $this->registerTools();
+
+        // Error Reporter Registration
+        try {
+            resolve(\Platform\Core\Services\ErrorReporterRegistry::class)
+                ->register('dev', 'Platform\\Dev');
+        } catch (\Throwable $e) {}
     }
 
     protected function registerLivewireComponents(): void
