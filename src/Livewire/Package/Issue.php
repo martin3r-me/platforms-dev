@@ -18,6 +18,9 @@ class Issue extends Component
     public string $editDescription = '';
     public string $editPriority = 'normal';
     public ?int $editStoryPoints = null;
+    public ?int $editUserInChargeId = null;
+    public ?string $editDueDate = null;
+    public ?int $editSlotId = null;
 
     // Acceptance criteria (DoD)
     public string $newCriterion = '';
@@ -100,6 +103,9 @@ class Issue extends Component
         $this->editDescription = $this->issue->description ?? '';
         $this->editPriority = $this->issue->priority instanceof \BackedEnum ? $this->issue->priority->value : $this->issue->priority;
         $this->editStoryPoints = $this->issue->story_points;
+        $this->editUserInChargeId = $this->issue->user_in_charge_id;
+        $this->editDueDate = $this->issue->due_date?->format('Y-m-d');
+        $this->editSlotId = $this->issue->dev_board_slot_id;
         $this->editing = true;
     }
 
@@ -115,6 +121,9 @@ class Issue extends Component
             'description' => trim($this->editDescription) ?: null,
             'priority' => $this->editPriority,
             'story_points' => $this->editStoryPoints ?: null,
+            'user_in_charge_id' => $this->editUserInChargeId ?: null,
+            'due_date' => $this->editDueDate ?: null,
+            'dev_board_slot_id' => $this->editSlotId ?: null,
         ]);
 
         $this->editing = false;
@@ -177,10 +186,25 @@ class Issue extends Component
         $criteriaTotal = count($criteria);
         $criteriaDone = collect($criteria)->where('done', true)->count();
 
+        // Team members for user assignment
+        $teamUsers = Auth::user()
+            ->currentTeam
+            ->users()
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($user) => ['id' => $user->id, 'name' => $user->fullname ?? $user->name]);
+
+        // Board slots for slot assignment
+        $boardSlots = $this->issue->board
+            ? $this->issue->board->slots()->orderBy('order')->get()->map(fn ($s) => ['id' => $s->id, 'name' => $s->name])
+            : collect();
+
         return view('dev::livewire.package.issue', [
             'criteria' => $criteria,
             'criteriaTotal' => $criteriaTotal,
             'criteriaDone' => $criteriaDone,
+            'teamUsers' => $teamUsers,
+            'boardSlots' => $boardSlots,
         ])->layout('platform::layouts.app');
     }
 }

@@ -196,8 +196,29 @@
                         />
                     </x-ui-form-grid>
 
-                    <x-ui-form-grid :cols="3" :gap="6">
-                        <x-ui-input-text wire:model="editStoryPoints" label="Story Points" type="number" min="0" max="100" placeholder="z.B. 3, 5, 8, 13" />
+                    <x-ui-form-grid :cols="4" :gap="6">
+                        <x-ui-input-text wire:model="editStoryPoints" label="Story Points" type="number" min="0" max="100" placeholder="z.B. 3, 5, 8" />
+                        <x-ui-input-select
+                            name="editUserInChargeId"
+                            wire:model="editUserInChargeId"
+                            label="Zuständig"
+                            :options="$teamUsers"
+                            optionValue="id"
+                            optionLabel="name"
+                            :nullable="true"
+                            nullLabel="– Niemand zugewiesen –"
+                        />
+                        <x-ui-input-text wire:model="editDueDate" label="Fällig am" type="date" />
+                        <x-ui-input-select
+                            name="editSlotId"
+                            wire:model="editSlotId"
+                            label="Slot"
+                            :options="$boardSlots"
+                            optionValue="id"
+                            optionLabel="name"
+                            :nullable="true"
+                            nullLabel="Backlog"
+                        />
                     </x-ui-form-grid>
 
                     <div>

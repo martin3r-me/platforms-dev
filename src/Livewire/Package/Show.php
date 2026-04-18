@@ -14,9 +14,47 @@ class Show extends Component
 {
     public DevPackage $package;
 
+    // Package editing
+    public bool $editingPackage = false;
+    public string $editPackageName = '';
+    public string $editPackageDescription = '';
+    public ?int $editPackageUserInChargeId = null;
+    public string $editPackageIcon = '';
+
     public function mount(DevPackage $package): void
     {
         $this->package = $package;
+    }
+
+    public function startEditingPackage(): void
+    {
+        $this->editPackageName = $this->package->name;
+        $this->editPackageDescription = $this->package->description ?? '';
+        $this->editPackageUserInChargeId = $this->package->user_in_charge_id;
+        $this->editPackageIcon = $this->package->icon ?? '';
+        $this->editingPackage = true;
+    }
+
+    public function savePackage(): void
+    {
+        if (trim($this->editPackageName) === '') {
+            return;
+        }
+
+        $this->package->update([
+            'name' => trim($this->editPackageName),
+            'description' => trim($this->editPackageDescription) ?: null,
+            'user_in_charge_id' => $this->editPackageUserInChargeId ?: null,
+            'icon' => trim($this->editPackageIcon) ?: null,
+        ]);
+
+        $this->package->refresh();
+        $this->editingPackage = false;
+    }
+
+    public function cancelEditPackage(): void
+    {
+        $this->editingPackage = false;
     }
 
     public function rendered(): void
@@ -120,6 +158,14 @@ class Show extends Component
                 ->get()
             : collect();
 
+        // Team members for user assignment
+        $teamUsers = Auth::user()
+            ->currentTeam
+            ->users()
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($user) => ['id' => $user->id, 'name' => $user->fullname ?? $user->name]);
+
         return view('dev::livewire.package.show', [
             'boards' => $boards,
             'totalOpen' => $totalOpen,
@@ -130,6 +176,7 @@ class Show extends Component
             'recentlyDone' => $recentlyDone,
             'recentCommits' => $recentCommits,
             'openPullRequests' => $openPullRequests,
+            'teamUsers' => $teamUsers,
         ])->layout('platform::layouts.app');
     }
 }

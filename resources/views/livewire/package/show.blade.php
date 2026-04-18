@@ -19,6 +19,12 @@
                     </a>
                 @endforeach
             </x-slot>
+            @if(!$editingPackage)
+                <x-ui-button variant="secondary-outline" size="sm" wire:click="startEditingPackage">
+                    @svg('heroicon-o-pencil', 'w-4 h-4')
+                    <span>Bearbeiten</span>
+                </x-ui-button>
+            @endif
         </x-ui-page-actionbar>
     </x-slot>
 
@@ -85,6 +91,44 @@
     </x-slot>
 
     <x-ui-page-container>
+        @if($editingPackage)
+            {{-- Package Edit Form --}}
+            <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden mb-6">
+                <div class="p-5 space-y-6">
+                    <h4 class="text-sm font-semibold text-[var(--ui-muted)] uppercase tracking-wider">Package bearbeiten</h4>
+                    <x-ui-form-grid :cols="3" :gap="6">
+                        <div class="col-span-2">
+                            <x-ui-input-text wire:model="editPackageName" label="Name" required />
+                        </div>
+                        <x-ui-input-text wire:model="editPackageIcon" label="Icon" placeholder="heroicon-o-cube" />
+                    </x-ui-form-grid>
+
+                    <x-ui-form-grid :cols="2" :gap="6">
+                        <x-ui-input-select
+                            name="editPackageUserInChargeId"
+                            wire:model="editPackageUserInChargeId"
+                            label="Verantwortlich"
+                            :options="$teamUsers"
+                            optionValue="id"
+                            optionLabel="name"
+                            :nullable="true"
+                            nullLabel="– Niemand zugewiesen –"
+                        />
+                    </x-ui-form-grid>
+
+                    <x-ui-input-textarea wire:model="editPackageDescription" label="Beschreibung" rows="3" />
+
+                    <div class="d-flex items-center gap-2">
+                        <x-ui-button variant="primary" size="sm" wire:click="savePackage">
+                            @svg('heroicon-o-check', 'w-4 h-4')
+                            <span>Speichern</span>
+                        </x-ui-button>
+                        <x-ui-button variant="secondary-outline" size="sm" wire:click="cancelEditPackage">Abbrechen</x-ui-button>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- Stats --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <x-ui-dashboard-tile title="Offene Issues" :count="$totalOpen" icon="clock" variant="warning" size="lg" />
