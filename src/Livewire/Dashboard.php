@@ -43,7 +43,7 @@ class Dashboard extends Component
 
         $this->showActivateModal = false;
         $this->dispatch('updateSidebar');
-        return $this->redirect(route('dev.packages.show', $package), navigate: true);
+        $this->redirect(route('dev.packages.show', $package), navigate: true);
     }
 
     public function render()
