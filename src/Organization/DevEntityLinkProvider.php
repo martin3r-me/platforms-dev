@@ -5,8 +5,9 @@ namespace Platform\Dev\Organization;
 use Illuminate\Database\Eloquent\Builder;
 use Platform\Dev\Models\DevIssue;
 use Platform\Organization\Contracts\EntityLinkProvider;
+use Platform\Organization\Contracts\HasMetricDefinitions;
 
-class DevEntityLinkProvider implements EntityLinkProvider
+class DevEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
 {
     public function morphAliases(): array
     {
@@ -126,5 +127,15 @@ class DevEntityLinkProvider implements EntityLinkProvider
         }
 
         return $result;
+    }
+
+    public function metricDefinitions(): array
+    {
+        return [
+            'dev_issues_total'       => ['label' => 'Issues (gesamt)', 'group' => 'dev', 'direction' => 'neutral', 'unit' => 'count'],
+            'dev_issues_done'        => ['label' => 'Issues (erledigt)', 'group' => 'dev', 'direction' => 'up', 'unit' => 'count', 'pair' => 'dev_issues_total'],
+            'dev_story_points_total' => ['label' => 'Story Points (gesamt)', 'group' => 'dev', 'direction' => 'neutral', 'unit' => 'points'],
+            'dev_story_points_done'  => ['label' => 'Story Points (erledigt)', 'group' => 'dev', 'direction' => 'up', 'unit' => 'points', 'pair' => 'dev_story_points_total'],
+        ];
     }
 }
