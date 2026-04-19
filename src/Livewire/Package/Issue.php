@@ -17,7 +17,7 @@ class Issue extends Component
     public string $title = '';
     public string $description = '';
     public string $priority = 'normal';
-    public ?int $storyPoints = null;
+    public ?string $storyPoints = null;
     public ?int $userInChargeId = null;
     public ?string $dueDate = null;
     public ?int $slotId = null;
@@ -33,7 +33,7 @@ class Issue extends Component
         $this->title = $issue->title;
         $this->description = $issue->description ?? '';
         $this->priority = $issue->priority instanceof \BackedEnum ? $issue->priority->value : $issue->priority;
-        $this->storyPoints = $issue->story_points;
+        $this->storyPoints = $issue->story_points?->value;
         $this->userInChargeId = $issue->user_in_charge_id;
         $this->dueDate = $issue->due_date?->format('Y-m-d');
         $this->slotId = $issue->dev_board_slot_id;
@@ -135,6 +135,7 @@ class Issue extends Component
     {
         $service = new DevIssueService();
         $this->issue = $service->updateIssue($this->issue, ['story_points' => $this->storyPoints ?: null]);
+        $this->storyPoints = $this->issue->story_points?->value;
     }
 
     public function updateUserInCharge($userId): void

@@ -37,7 +37,7 @@
                 @if($issue->story_points)
                     <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-[var(--ui-primary-5)] border border-[var(--ui-primary)]/20">
                         <span class="text-sm text-[var(--ui-secondary)]">Story Points</span>
-                        <span class="text-lg font-bold text-[var(--ui-primary)]">{{ $issue->story_points }}</span>
+                        <span class="text-lg font-bold text-[var(--ui-primary)]">{{ $issue->story_points->points() }} <span class="text-xs font-medium opacity-60">{{ $issue->story_points->label() }}</span></span>
                     </div>
                 @endif
 
@@ -207,12 +207,13 @@
                 {{-- Story Points --}}
                 <div class="d-flex items-center gap-1.5">
                     <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[var(--ui-primary-5)] text-[9px] font-bold text-[var(--ui-primary)]">SP</span>
-                    <input type="number"
-                           wire:model.blur="storyPoints"
-                           wire:change="updateStoryPoints"
-                           min="0" max="100"
-                           placeholder="-"
-                           class="text-sm text-[var(--ui-secondary)] bg-transparent border-none focus:outline-none focus:ring-0 p-0 w-8">
+                    <select wire:model="storyPoints" wire:change="updateStoryPoints"
+                            class="text-sm text-[var(--ui-secondary)] bg-transparent border-none focus:outline-none focus:ring-0 p-0 cursor-pointer">
+                        <option value="">–</option>
+                        @foreach(\Platform\Dev\Enums\IssueStoryPoints::cases() as $sp)
+                            <option value="{{ $sp->value }}">{{ $sp->label() }} ({{ $sp->points() }})</option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <span class="text-[var(--ui-border)]">|</span>

@@ -109,7 +109,7 @@ class DevEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                     continue;
                 }
                 $total++;
-                $sp = (int) ($issue->story_points ?? 0);
+                $sp = $issue->story_points?->points() ?? 0;
                 $spTotal += $sp;
 
                 if ($issue->is_done) {
@@ -119,10 +119,10 @@ class DevEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             }
 
             $result[$entityId] = [
-                'dev_issues_total' => $total,
-                'dev_issues_done' => $done,
-                'dev_story_points_total' => $spTotal,
-                'dev_story_points_done' => $spDone,
+                'items_total' => $total,
+                'items_done' => $done,
+                'story_points_total' => $spTotal,
+                'story_points_done' => $spDone,
             ];
         }
 
@@ -132,10 +132,10 @@ class DevEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
     public function metricDefinitions(): array
     {
         return [
-            'dev_issues_total'       => ['label' => 'Issues (gesamt)', 'group' => 'dev', 'direction' => 'neutral', 'unit' => 'count'],
-            'dev_issues_done'        => ['label' => 'Issues (erledigt)', 'group' => 'dev', 'direction' => 'up', 'unit' => 'count', 'pair' => 'dev_issues_total'],
-            'dev_story_points_total' => ['label' => 'Story Points (gesamt)', 'group' => 'dev', 'direction' => 'neutral', 'unit' => 'points'],
-            'dev_story_points_done'  => ['label' => 'Story Points (erledigt)', 'group' => 'dev', 'direction' => 'up', 'unit' => 'points', 'pair' => 'dev_story_points_total'],
+            'items_total'        => ['label' => 'Items (gesamt)', 'group' => 'work', 'direction' => 'neutral', 'unit' => 'count'],
+            'items_done'         => ['label' => 'Items (erledigt)', 'group' => 'work', 'direction' => 'up', 'unit' => 'count', 'pair' => 'items_total'],
+            'story_points_total' => ['label' => 'Story Points (gesamt)', 'group' => 'work', 'direction' => 'neutral', 'unit' => 'points'],
+            'story_points_done'  => ['label' => 'Story Points (erledigt)', 'group' => 'work', 'direction' => 'up', 'unit' => 'points', 'pair' => 'story_points_total'],
         ];
     }
 }

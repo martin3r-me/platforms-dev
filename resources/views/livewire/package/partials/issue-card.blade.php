@@ -36,8 +36,8 @@
                 @endif
             </div>
             @if($issue->story_points)
-                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[var(--ui-primary-5)] border border-[var(--ui-primary)]/20 text-[10px] font-bold text-[var(--ui-primary)]">
-                    {{ $issue->story_points }}
+                <span class="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-[var(--ui-primary-5)] border border-[var(--ui-primary)]/20 text-[10px] font-bold text-[var(--ui-primary)]" title="{{ $issue->story_points->label() }}">
+                    {{ $issue->story_points->points() }}
                 </span>
             @endif
         </div>

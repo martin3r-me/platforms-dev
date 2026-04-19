@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Platform\ActivityLog\Traits\LogsActivity;
 use Platform\Core\Traits\HasTags;
 use Platform\Dev\Enums\IssuePriority;
+use Platform\Dev\Enums\IssueStoryPoints;
 use Platform\Organization\Traits\HasTimeEntries;
 use Symfony\Component\Uid\UuidV7;
 
@@ -40,7 +41,7 @@ class DevIssue extends Model
 
     protected $casts = [
         'priority' => IssuePriority::class,
-        'story_points' => 'integer',
+        'story_points' => IssueStoryPoints::class,
         'labels' => 'array',
         'acceptance_criteria' => 'array',
         'is_done' => 'boolean',
