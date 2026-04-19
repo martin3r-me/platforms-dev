@@ -151,7 +151,7 @@
                             <div class="flex flex-wrap items-center gap-6 text-sm text-[var(--ui-muted)]">
                                 @if($issue->board)
                                     <span class="flex items-center gap-2">
-                                        @svg('heroicon-o-view-boards', 'w-4 h-4')
+                                        @svg('heroicon-o-view-columns', 'w-4 h-4')
                                         <span>Board: <span class="text-[var(--ui-secondary)]">{{ $issue->board->name }}</span></span>
                                     </span>
                                 @endif
