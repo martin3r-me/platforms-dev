@@ -75,7 +75,6 @@ class Show extends Component
 
     public bool $showCreateBoardModal = false;
     public string $newBoardName = '';
-    public string $newBoardType = 'custom';
     public string $newBoardDescription = '';
 
     public function createBoard(): void
@@ -91,7 +90,7 @@ class Show extends Component
         $boardService = new DevBoardService();
         $board = $boardService->createBoard([
             'name' => $name,
-            'type' => $this->newBoardType,
+            'type' => 'feature',
             'description' => trim($this->newBoardDescription) ?: null,
             'dev_package_id' => $this->package->id,
             'team_id' => $team->id,
@@ -101,7 +100,6 @@ class Show extends Component
 
         $this->showCreateBoardModal = false;
         $this->newBoardName = '';
-        $this->newBoardType = 'custom';
         $this->newBoardDescription = '';
 
         $this->dispatch('updateSidebar');

@@ -10,37 +10,90 @@
             ['label' => $board->name],
         ]">
             <x-slot name="left">
-                @foreach($allBoards as $b)
-                    <a href="{{ route('dev.packages.boards.show', [$package, $b]) }}" wire:navigate>
-                        <x-ui-button variant="{{ $b->id === $board->id ? 'primary' : 'ghost' }}" size="sm">
-                            @if($b->type === 'bug')
-                                @svg('heroicon-o-bug-ant', 'w-4 h-4')
-                            @elseif($b->type === 'feature')
-                                @svg('heroicon-o-light-bulb', 'w-4 h-4')
-                            @else
-                                @svg('heroicon-o-view-columns', 'w-4 h-4')
-                            @endif
-                            <span>{{ $b->name }}</span>
-                            <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $b->open_issues_count }}</span>
-                        </x-ui-button>
-                    </a>
-                @endforeach
+                {{-- Board Switcher Dropdown --}}
+                <div x-data="{ open: false }" class="relative">
+                    <button @click="open = !open" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[var(--ui-secondary)] border border-[var(--ui-border)] rounded-md hover:bg-[var(--ui-muted-5)] transition-colors">
+                        @if($board->type->value === 'bug')
+                            @svg('heroicon-o-bug-ant', 'w-4 h-4 text-[var(--ui-danger)]')
+                        @else
+                            @svg('heroicon-o-light-bulb', 'w-4 h-4 text-[var(--ui-primary)]')
+                        @endif
+                        {{ $board->name }}
+                        @svg('heroicon-o-chevron-down', 'w-3 h-3 text-[var(--ui-muted)]')
+                    </button>
+                    <div
+                        x-show="open"
+                        x-transition:enter="transition ease-out duration-100"
+                        x-transition:enter-start="opacity-0 scale-95"
+                        x-transition:enter-end="opacity-100 scale-100"
+                        x-transition:leave="transition ease-in duration-75"
+                        x-transition:leave-start="opacity-100 scale-100"
+                        x-transition:leave-end="opacity-0 scale-95"
+                        @click.outside="open = false"
+                        class="absolute left-0 mt-1 w-64 rounded-lg bg-[var(--ui-surface)] shadow-lg ring-1 ring-[var(--ui-border)] z-50 py-1 top-full"
+                        style="display: none;"
+                    >
+                        @foreach($allBoards as $b)
+                            <a href="{{ route('dev.packages.boards.show', [$package, $b]) }}"
+                               wire:navigate
+                               @click="open = false"
+                               class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors {{ $b->id === $board->id ? 'bg-[var(--ui-primary-5)] text-[var(--ui-primary)] font-medium' : 'text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
+                                @if($b->id === $board->id)
+                                    @svg('heroicon-o-check', 'w-4 h-4 flex-shrink-0')
+                                @elseif($b->type->value === 'bug')
+                                    @svg('heroicon-o-bug-ant', 'w-4 h-4 text-[var(--ui-danger)] flex-shrink-0')
+                                @else
+                                    @svg('heroicon-o-light-bulb', 'w-4 h-4 text-[var(--ui-primary)] flex-shrink-0')
+                                @endif
+                                <span class="flex-grow-1 truncate">{{ $b->name }}</span>
+                                <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $b->open_issues_count }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
             </x-slot>
-            <x-ui-button variant="ghost" size="sm" wire:click="openBoardSettings">
-                @svg('heroicon-o-cog-6-tooth', 'w-4 h-4')
-            </x-ui-button>
-            <x-ui-confirm-button
-                variant="danger-outline"
-                size="sm"
-                wire:click="archiveBoard"
-                confirm-text="Board wirklich archivieren? Issues bleiben erhalten."
-            >
-                @svg('heroicon-o-archive-box', 'w-4 h-4')
-            </x-ui-confirm-button>
-            <x-ui-button variant="ghost" size="sm" wire:click="createBoardSlot">
-                @svg('heroicon-o-square-2-stack', 'w-4 h-4')
-                <span>Spalte</span>
-            </x-ui-button>
+            {{-- Board Actions --}}
+            <div x-data="{ open: false }" class="relative inline-flex">
+                <x-ui-button variant="ghost" size="sm" wire:click="openBoardSettings" class="rounded-r-none border-r-0">
+                    @svg('heroicon-o-cog-6-tooth', 'w-4 h-4')
+                </x-ui-button>
+                <button
+                    @click="open = !open"
+                    class="inline-flex items-center px-1.5 border border-[var(--ui-border)] rounded-r-md hover:bg-[var(--ui-muted-5)] transition-colors"
+                >
+                    @svg('heroicon-o-chevron-down', 'w-3 h-3 text-[var(--ui-secondary)]')
+                </button>
+                <div
+                    x-show="open"
+                    x-transition:enter="transition ease-out duration-100"
+                    x-transition:enter-start="opacity-0 scale-95"
+                    x-transition:enter-end="opacity-100 scale-100"
+                    x-transition:leave="transition ease-in duration-75"
+                    x-transition:leave-start="opacity-100 scale-100"
+                    x-transition:leave-end="opacity-0 scale-95"
+                    @click.outside="open = false"
+                    class="absolute right-0 mt-1 w-48 rounded-lg bg-[var(--ui-surface)] shadow-lg ring-1 ring-[var(--ui-border)] z-50 py-1 top-full"
+                    style="display: none;"
+                >
+                    <button wire:click="openBoardSettings" @click="open = false"
+                            class="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)] transition-colors text-left">
+                        @svg('heroicon-o-pencil', 'w-4 h-4 text-[var(--ui-muted)]')
+                        Board umbenennen
+                    </button>
+                    <button wire:click="createBoardSlot" @click="open = false"
+                            class="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)] transition-colors text-left">
+                        @svg('heroicon-o-square-2-stack', 'w-4 h-4 text-[var(--ui-muted)]')
+                        Spalte hinzufuegen
+                    </button>
+                    <div class="border-t border-[var(--ui-border)]/40 my-1"></div>
+                    <button wire:click="archiveBoard" wire:confirm="Board wirklich archivieren? Issues bleiben erhalten."
+                            @click="open = false"
+                            class="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--ui-danger)] hover:bg-[var(--ui-danger)]/5 transition-colors text-left">
+                        @svg('heroicon-o-archive-box', 'w-4 h-4')
+                        Board archivieren
+                    </button>
+                </div>
+            </div>
         </x-ui-page-actionbar>
     </x-slot>
 

@@ -9,25 +9,65 @@
             ['label' => $package->name],
         ]">
             <x-slot name="left">
-                @foreach($boards as $board)
-                    <a href="{{ route('dev.packages.boards.show', [$package, $board]) }}" wire:navigate>
-                        <x-ui-button variant="ghost" size="sm">
-                            @if($board->type === 'bug')
-                                @svg('heroicon-o-bug-ant', 'w-4 h-4')
-                            @elseif($board->type === 'feature')
-                                @svg('heroicon-o-light-bulb', 'w-4 h-4')
-                            @else
-                                @svg('heroicon-o-view-columns', 'w-4 h-4')
-                            @endif
-                            <span>{{ $board->name }}</span>
-                            <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $board->open_issues_count }}</span>
-                        </x-ui-button>
-                    </a>
-                @endforeach
-                <x-ui-button variant="ghost" size="sm" wire:click="$set('showCreateBoardModal', true)">
-                    @svg('heroicon-o-plus', 'w-4 h-4')
-                    <span>Board</span>
-                </x-ui-button>
+                {{-- Boards Dropdown --}}
+                <div x-data="{ open: false }" class="relative">
+                    <button @click="open = !open" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[var(--ui-secondary)] border border-[var(--ui-border)] rounded-md hover:bg-[var(--ui-muted-5)] transition-colors">
+                        @svg('heroicon-o-view-columns', 'w-4 h-4 text-[var(--ui-muted)]')
+                        Boards
+                        <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $boards->count() }}</span>
+                        @svg('heroicon-o-chevron-down', 'w-3 h-3 text-[var(--ui-muted)]')
+                    </button>
+                    <div
+                        x-show="open"
+                        x-transition:enter="transition ease-out duration-100"
+                        x-transition:enter-start="opacity-0 scale-95"
+                        x-transition:enter-end="opacity-100 scale-100"
+                        x-transition:leave="transition ease-in duration-75"
+                        x-transition:leave-start="opacity-100 scale-100"
+                        x-transition:leave-end="opacity-0 scale-95"
+                        @click.outside="open = false"
+                        class="absolute left-0 mt-1 w-64 rounded-lg bg-[var(--ui-surface)] shadow-lg ring-1 ring-[var(--ui-border)] z-50 py-1 top-full"
+                        style="display: none;"
+                    >
+                        @foreach($boards as $board)
+                            <a href="{{ route('dev.packages.boards.show', [$package, $board]) }}"
+                               wire:navigate
+                               @click="open = false"
+                               class="flex items-center gap-2.5 px-3 py-2 text-sm text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)] transition-colors">
+                                @if($board->type->value === 'bug')
+                                    @svg('heroicon-o-bug-ant', 'w-4 h-4 text-[var(--ui-danger)] flex-shrink-0')
+                                @else
+                                    @svg('heroicon-o-light-bulb', 'w-4 h-4 text-[var(--ui-primary)] flex-shrink-0')
+                                @endif
+                                <span class="flex-grow-1 truncate">{{ $board->name }}</span>
+                                <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $board->open_issues_count }}</span>
+                            </a>
+                        @endforeach
+                        @if($archivedBoards->isNotEmpty())
+                            <div class="border-t border-[var(--ui-border)]/40 my-1"></div>
+                            <div class="px-3 py-1.5 text-xs font-medium text-[var(--ui-muted)] uppercase tracking-wider">Archiviert</div>
+                            @foreach($archivedBoards as $archivedBoard)
+                                <div class="flex items-center gap-2.5 px-3 py-2 text-sm text-[var(--ui-muted)]">
+                                    @svg('heroicon-o-archive-box', 'w-4 h-4 flex-shrink-0')
+                                    <span class="flex-grow-1 truncate">{{ $archivedBoard->name }}</span>
+                                    <button wire:click="reactivateBoard({{ $archivedBoard->id }})"
+                                            @click="open = false"
+                                            class="p-0.5 rounded text-[var(--ui-muted)] hover:text-[var(--ui-primary)] transition-colors"
+                                            title="Reaktivieren">
+                                        @svg('heroicon-o-arrow-path', 'w-3.5 h-3.5')
+                                    </button>
+                                </div>
+                            @endforeach
+                        @endif
+                        <div class="border-t border-[var(--ui-border)]/40 my-1"></div>
+                        <button wire:click="$set('showCreateBoardModal', true)"
+                                @click="open = false"
+                                class="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-[var(--ui-primary)] hover:bg-[var(--ui-muted-5)] transition-colors text-left">
+                            @svg('heroicon-o-plus', 'w-4 h-4')
+                            Neues Feature Board
+                        </button>
+                    </div>
+                </div>
             </x-slot>
             @if(!$editingPackage)
                 <x-ui-button variant="secondary-outline" size="sm" wire:click="openErrorSettings">
@@ -100,29 +140,6 @@
                         @endforeach
                     </div>
                 </div>
-
-                {{-- Archived Boards --}}
-                @if($archivedBoards->isNotEmpty())
-                    <div>
-                        <h3 class="text-sm font-bold text-[var(--ui-muted)] uppercase tracking-wider mb-3">
-                            Archiviert
-                            <x-ui-badge variant="muted" size="xs" class="ml-1">{{ $archivedBoards->count() }}</x-ui-badge>
-                        </h3>
-                        <div class="space-y-1.5">
-                            @foreach($archivedBoards as $archivedBoard)
-                                <div class="d-flex items-center gap-2.5 py-2 px-3 rounded-lg bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/40">
-                                    @svg('heroicon-o-archive-box', 'w-4 h-4 text-[var(--ui-muted)] flex-shrink-0')
-                                    <span class="text-sm text-[var(--ui-muted)] flex-grow-1 truncate">{{ $archivedBoard->name }}</span>
-                                    <button wire:click="reactivateBoard({{ $archivedBoard->id }})"
-                                            class="p-1 rounded text-[var(--ui-muted)] hover:text-[var(--ui-primary)] hover:bg-[var(--ui-primary-5)] transition-colors"
-                                            title="Reaktivieren">
-                                        @svg('heroicon-o-arrow-path', 'w-4 h-4')
-                                    </button>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
 
                 {{-- Package Info --}}
                 <div>
@@ -510,7 +527,7 @@
     @if($showCreateBoardModal)
         <x-ui-modal wire:model="showCreateBoardModal" size="lg">
             <x-slot name="header">
-                Neues Board erstellen
+                Neues Feature Board
             </x-slot>
 
             <div class="space-y-4">
@@ -521,23 +538,11 @@
                     required
                     placeholder="z.B. Sprint 3, Auth Refactoring..."
                 />
-                <x-ui-input-select
-                    name="newBoardType"
-                    wire:model.live="newBoardType"
-                    label="Typ"
-                    :options="[
-                        ['value' => 'feature', 'label' => 'Features'],
-                        ['value' => 'bug', 'label' => 'Bugs'],
-                        ['value' => 'custom', 'label' => 'Custom'],
-                    ]"
-                    optionValue="value"
-                    optionLabel="label"
-                />
                 <x-ui-input-textarea
                     name="newBoardDescription"
                     wire:model.live="newBoardDescription"
                     label="Beschreibung"
-                    rows="3"
+                    rows="2"
                     placeholder="Optionale Beschreibung..."
                 />
             </div>
