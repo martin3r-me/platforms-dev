@@ -13,9 +13,15 @@
                 @foreach($allBoards as $b)
                     <a href="{{ route('dev.packages.boards.show', [$package, $b]) }}" wire:navigate>
                         <x-ui-button variant="{{ $b->id === $board->id ? 'primary' : 'ghost' }}" size="sm">
-                            @svg('heroicon-o-view-columns', 'w-4 h-4')
+                            @if($b->type === 'bug')
+                                @svg('heroicon-o-bug-ant', 'w-4 h-4')
+                            @elseif($b->type === 'feature')
+                                @svg('heroicon-o-light-bulb', 'w-4 h-4')
+                            @else
+                                @svg('heroicon-o-view-columns', 'w-4 h-4')
+                            @endif
                             <span>{{ $b->name }}</span>
-                            <span class="ml-1 opacity-60">({{ $b->open_issues_count }})</span>
+                            <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $b->open_issues_count }}</span>
                         </x-ui-button>
                     </a>
                 @endforeach
@@ -28,7 +34,7 @@
     </x-slot>
 
     <x-slot name="sidebar">
-        <x-ui-page-sidebar title="Board-Übersicht" width="w-80" :defaultOpen="true" side="left">
+        <x-ui-page-sidebar title="Board-Uebersicht" width="w-80" :defaultOpen="true" side="left">
             <div class="p-6 space-y-6">
 				{{-- Board-Info --}}
                 <div>
@@ -57,9 +63,9 @@
 					<x-ui-dashboard-tile title="Offen" :count="$groups->filter(fn($g) => !($g->isDoneGroup ?? false))->sum(fn($g) => $g->tasks->count())" icon="clock" variant="warning" size="sm" />
 					<x-ui-dashboard-tile title="Gesamt" :count="$groups->flatMap(fn($g) => $g->tasks)->count()" icon="document-text" variant="secondary" size="sm" />
 					<x-ui-dashboard-tile title="Erledigt" :count="$groups->filter(fn($g) => $g->isDoneGroup ?? false)->sum(fn($g) => $g->tasks->count())" icon="check-circle" variant="success" size="sm" />
-					<x-ui-dashboard-tile title="Ohne Fälligkeit" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => !$t->due_date)->count()" icon="calendar" variant="neutral" size="sm" />
-					<x-ui-dashboard-tile title="Hohe Priorität" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => ($t->priority instanceof \BackedEnum ? $t->priority->value : $t->priority) === 'high')->count()" icon="fire" variant="danger" size="sm" />
-					<x-ui-dashboard-tile title="Überfällig" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => $t->due_date && $t->due_date->isPast() && !$t->is_done)->count()" icon="exclamation-circle" variant="danger" size="sm" />
+					<x-ui-dashboard-tile title="Ohne Faelligkeit" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => !$t->due_date)->count()" icon="calendar" variant="neutral" size="sm" />
+					<x-ui-dashboard-tile title="Hohe Prioritaet" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => ($t->priority instanceof \BackedEnum ? $t->priority->value : $t->priority) === 'high')->count()" icon="fire" variant="danger" size="sm" />
+					<x-ui-dashboard-tile title="Ueberfaellig" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => $t->due_date && $t->due_date->isPast() && !$t->is_done)->count()" icon="exclamation-circle" variant="danger" size="sm" />
 				</div>
 
 				{{-- Erledigte Issues --}}
@@ -89,13 +95,13 @@
     </x-slot>
 
     <x-slot name="activity">
-        <x-ui-page-sidebar title="Aktivitäten" width="w-80" defaultOpen="false" storeKey="activityOpen" side="right">
+        <x-ui-page-sidebar title="Aktivitaeten" width="w-80" defaultOpen="false" storeKey="activityOpen" side="right">
             <div class="p-4 space-y-4">
-                <div class="text-sm text-[var(--ui-muted)]">Letzte Aktivitäten</div>
+                <div class="text-sm text-[var(--ui-muted)]">Letzte Aktivitaeten</div>
                 <div class="space-y-3 text-sm">
                     @foreach(($activities ?? []) as $activity)
                         <div class="p-2 rounded border border-[var(--ui-border)]/60 bg-[var(--ui-muted-5)]">
-                            <div class="font-medium text-[var(--ui-secondary)] truncate">{{ $activity['title'] ?? 'Aktivität' }}</div>
+                            <div class="font-medium text-[var(--ui-secondary)] truncate">{{ $activity['title'] ?? 'Aktivitaet' }}</div>
                             <div class="text-[var(--ui-muted)]">{{ $activity['time'] ?? '' }}</div>
                         </div>
                     @endforeach
@@ -117,13 +123,13 @@
 				<x-slot name="headerActions">
                     <button
                         wire:click="createIssue('{{ $column->id }}')"
-                        class="text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors"
+                        class="p-1 rounded bg-[var(--ui-primary-5)] text-[var(--ui-primary)] hover:bg-[var(--ui-primary)]/20 transition-colors"
                         title="Neues Issue">
-                        @svg('heroicon-o-plus-circle', 'w-4 h-4')
+                        @svg('heroicon-o-plus', 'w-4 h-4')
                     </button>
                     <button
                         wire:click="openSlotSettings({{ $column->id }})"
-                        class="text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors"
+                        class="p-1 rounded text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] opacity-0 group-hover:opacity-100 transition-all"
                         title="Spalte bearbeiten">
                         @svg('heroicon-o-cog-6-tooth', 'w-4 h-4')
                     </button>
@@ -156,9 +162,9 @@
             </div>
             <x-slot name="footer">
                 <div class="d-flex items-center justify-between w-full">
-                    <x-ui-button variant="danger-outline" size="sm" wire:click="deleteSlot" wire:confirm="Spalte wirklich löschen? Issues werden in den Backlog verschoben.">
+                    <x-ui-button variant="danger-outline" size="sm" wire:click="deleteSlot" wire:confirm="Spalte wirklich loeschen? Issues werden in den Backlog verschoben.">
                         @svg('heroicon-o-trash', 'w-4 h-4')
-                        <span>Löschen</span>
+                        <span>Loeschen</span>
                     </x-ui-button>
                     <div class="d-flex items-center gap-2">
                         <x-ui-button variant="secondary-outline" wire:click="$set('showSlotSettings', false)">Abbrechen</x-ui-button>

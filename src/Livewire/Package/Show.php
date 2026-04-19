@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Platform\Dev\Models\DevPackage;
 use Platform\Dev\Models\DevPackageErrorSettings;
 use Platform\Dev\Models\DevErrorOccurrence;
+use Platform\Dev\Models\DevDiscussion;
 use Platform\Dev\Models\DevIssue;
 use Platform\Integrations\Models\IntegrationGithubCommit;
 use Platform\Integrations\Models\IntegrationGithubPullRequest;
@@ -244,6 +245,16 @@ class Show extends Component
 
         $errorSettings = $this->package->errorSettings;
 
+        // Recent discussions
+        $recentDiscussions = $this->package->discussions()
+            ->withCount('replies')
+            ->with('createdBy')
+            ->orderByDesc('created_at')
+            ->limit(3)
+            ->get();
+
+        $discussionCount = $this->package->discussions()->count();
+
         // Team members for user assignment
         $teamUsers = Auth::user()
             ->currentTeam
@@ -265,6 +276,8 @@ class Show extends Component
             'teamUsers' => $teamUsers,
             'errorOccurrences' => $errorOccurrences,
             'errorSettingsEnabled' => $errorSettings?->enabled ?? false,
+            'recentDiscussions' => $recentDiscussions,
+            'discussionCount' => $discussionCount,
         ])->layout('platform::layouts.app');
     }
 }
