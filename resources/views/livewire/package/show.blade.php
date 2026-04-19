@@ -8,67 +8,6 @@
             ['label' => 'Dev', 'href' => route('dev.dashboard'), 'icon' => 'code-bracket'],
             ['label' => $package->name],
         ]">
-            <x-slot name="left">
-                {{-- Boards Dropdown --}}
-                <div x-data="{ open: false }" class="relative">
-                    <button @click="open = !open" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[var(--ui-secondary)] border border-[var(--ui-border)] rounded-md hover:bg-[var(--ui-muted-5)] transition-colors">
-                        @svg('heroicon-o-view-columns', 'w-4 h-4 text-[var(--ui-muted)]')
-                        Boards
-                        <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $boards->count() }}</span>
-                        @svg('heroicon-o-chevron-down', 'w-3 h-3 text-[var(--ui-muted)]')
-                    </button>
-                    <div
-                        x-show="open"
-                        x-transition:enter="transition ease-out duration-100"
-                        x-transition:enter-start="opacity-0 scale-95"
-                        x-transition:enter-end="opacity-100 scale-100"
-                        x-transition:leave="transition ease-in duration-75"
-                        x-transition:leave-start="opacity-100 scale-100"
-                        x-transition:leave-end="opacity-0 scale-95"
-                        @click.outside="open = false"
-                        class="absolute left-0 mt-1 w-64 rounded-lg bg-[var(--ui-surface)] shadow-lg ring-1 ring-[var(--ui-border)] z-50 py-1 top-full"
-                        style="display: none;"
-                    >
-                        @foreach($boards as $board)
-                            <a href="{{ route('dev.packages.boards.show', [$package, $board]) }}"
-                               wire:navigate
-                               @click="open = false"
-                               class="flex items-center gap-2.5 px-3 py-2 text-sm text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)] transition-colors">
-                                @if($board->type->value === 'bug')
-                                    @svg('heroicon-o-bug-ant', 'w-4 h-4 text-[var(--ui-danger)] flex-shrink-0')
-                                @else
-                                    @svg('heroicon-o-light-bulb', 'w-4 h-4 text-[var(--ui-primary)] flex-shrink-0')
-                                @endif
-                                <span class="flex-grow-1 truncate">{{ $board->name }}</span>
-                                <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $board->open_issues_count }}</span>
-                            </a>
-                        @endforeach
-                        @if($archivedBoards->isNotEmpty())
-                            <div class="border-t border-[var(--ui-border)]/40 my-1"></div>
-                            <div class="px-3 py-1.5 text-xs font-medium text-[var(--ui-muted)] uppercase tracking-wider">Archiviert</div>
-                            @foreach($archivedBoards as $archivedBoard)
-                                <div class="flex items-center gap-2.5 px-3 py-2 text-sm text-[var(--ui-muted)]">
-                                    @svg('heroicon-o-archive-box', 'w-4 h-4 flex-shrink-0')
-                                    <span class="flex-grow-1 truncate">{{ $archivedBoard->name }}</span>
-                                    <button wire:click="reactivateBoard({{ $archivedBoard->id }})"
-                                            @click="open = false"
-                                            class="p-0.5 rounded text-[var(--ui-muted)] hover:text-[var(--ui-primary)] transition-colors"
-                                            title="Reaktivieren">
-                                        @svg('heroicon-o-arrow-path', 'w-3.5 h-3.5')
-                                    </button>
-                                </div>
-                            @endforeach
-                        @endif
-                        <div class="border-t border-[var(--ui-border)]/40 my-1"></div>
-                        <button wire:click="$set('showCreateBoardModal', true)"
-                                @click="open = false"
-                                class="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-[var(--ui-primary)] hover:bg-[var(--ui-muted-5)] transition-colors text-left">
-                            @svg('heroicon-o-plus', 'w-4 h-4')
-                            Neues Feature Board
-                        </button>
-                    </div>
-                </div>
-            </x-slot>
             @if(!$editingPackage)
                 <x-ui-button variant="secondary-outline" size="sm" wire:click="openErrorSettings">
                     @svg('heroicon-o-bug-ant', 'w-4 h-4')
@@ -191,50 +130,182 @@
 
     <x-ui-page-container>
         @if($editingPackage)
-            {{-- Package Edit Form --}}
-            <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden mb-6">
-                <div class="p-5 space-y-6">
-                    <h4 class="text-sm font-semibold text-[var(--ui-muted)] uppercase tracking-wider">Package bearbeiten</h4>
-                    <x-ui-form-grid :cols="3" :gap="6">
+            {{-- Package Edit Modal --}}
+            <x-ui-modal wire:model="editingPackage" size="lg">
+                <x-slot name="header">Package bearbeiten</x-slot>
+                <div class="space-y-4">
+                    <x-ui-form-grid :cols="3" :gap="4">
                         <div class="col-span-2">
                             <x-ui-input-text wire:model="editPackageName" label="Name" required />
                         </div>
                         <x-ui-input-text wire:model="editPackageIcon" label="Icon" placeholder="heroicon-o-cube" />
                     </x-ui-form-grid>
-
-                    <x-ui-form-grid :cols="2" :gap="6">
-                        <x-ui-input-select
-                            name="editPackageUserInChargeId"
-                            wire:model="editPackageUserInChargeId"
-                            label="Verantwortlich"
-                            :options="$teamUsers"
-                            optionValue="id"
-                            optionLabel="name"
-                            :nullable="true"
-                            nullLabel="– Niemand zugewiesen –"
-                        />
-                    </x-ui-form-grid>
-
+                    <x-ui-input-select
+                        name="editPackageUserInChargeId"
+                        wire:model="editPackageUserInChargeId"
+                        label="Verantwortlich"
+                        :options="$teamUsers"
+                        optionValue="id"
+                        optionLabel="name"
+                        :nullable="true"
+                        nullLabel="– Niemand zugewiesen –"
+                    />
                     <x-ui-input-textarea wire:model="editPackageDescription" label="Beschreibung" rows="3" />
-
-                    <div class="d-flex items-center gap-2">
-                        <x-ui-button variant="primary" size="sm" wire:click="savePackage">
-                            @svg('heroicon-o-check', 'w-4 h-4')
-                            <span>Speichern</span>
-                        </x-ui-button>
-                        <x-ui-button variant="secondary-outline" size="sm" wire:click="cancelEditPackage">Abbrechen</x-ui-button>
+                </div>
+                <x-slot name="footer">
+                    <div class="d-flex justify-end gap-2">
+                        <x-ui-button variant="secondary-outline" wire:click="cancelEditPackage">Abbrechen</x-ui-button>
+                        <x-ui-button variant="primary" wire:click="savePackage">Speichern</x-ui-button>
                     </div>
+                </x-slot>
+            </x-ui-modal>
+        @endif
+
+        {{-- Boards as Card Grid --}}
+        <div class="mb-8">
+            <div class="d-flex items-center justify-between mb-4">
+                <div class="d-flex items-center gap-2.5">
+                    @svg('heroicon-o-view-columns', 'w-5 h-5 text-[var(--ui-primary)]')
+                    <h3 class="text-sm font-semibold text-[var(--ui-secondary)] uppercase tracking-wider">Boards</h3>
+                </div>
+                {{-- Stats Pills --}}
+                <div class="d-flex items-center gap-2">
+                    @if($totalHighPriority > 0)
+                        <span class="d-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-[var(--ui-danger)]/10 text-[var(--ui-danger)] font-medium">
+                            @svg('heroicon-s-fire', 'w-3 h-3') {{ $totalHighPriority }}
+                        </span>
+                    @endif
+                    @if($totalOverdue > 0)
+                        <span class="d-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-[var(--ui-warning)]/10 text-[var(--ui-warning)] font-medium">
+                            @svg('heroicon-o-clock', 'w-3 h-3') {{ $totalOverdue }}
+                        </span>
+                    @endif
+                    <span class="d-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">
+                        {{ $totalOpen }} offen &middot; {{ $totalDone }} erledigt
+                    </span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                @foreach($boards as $board)
+                    @php
+                        $boardTotal = $board->open_issues_count + ($board->issues()->where('is_done', true)->count());
+                        $boardDone = $boardTotal - $board->open_issues_count;
+                        $boardPct = $boardTotal > 0 ? round($boardDone / $boardTotal * 100) : 0;
+                        $isBug = $board->type->value === 'bug';
+                        $color = $isBug ? 'danger' : 'primary';
+                    @endphp
+                    <a href="{{ route('dev.packages.boards.show', [$package, $board]) }}"
+                       wire:navigate
+                       class="group block p-4 rounded-lg border border-[var(--ui-border)]/60 bg-[var(--ui-surface)] hover:border-[var(--ui-{{ $color }})]/40 hover:bg-[var(--ui-{{ $color }})]/[0.03] transition-colors">
+                        <div class="d-flex items-center gap-3 mb-3">
+                            <div class="w-9 h-9 rounded-lg d-flex items-center justify-center flex-shrink-0 bg-[var(--ui-{{ $color }})]/10">
+                                @if($isBug)
+                                    @svg('heroicon-o-bug-ant', 'w-4.5 h-4.5 text-[var(--ui-danger)]')
+                                @else
+                                    @svg('heroicon-o-light-bulb', 'w-4.5 h-4.5 text-[var(--ui-primary)]')
+                                @endif
+                            </div>
+                            <div class="min-w-0 flex-grow-1">
+                                <div class="text-sm font-medium text-[var(--ui-secondary)] truncate group-hover:text-[var(--ui-{{ $color }})] transition-colors">{{ $board->name }}</div>
+                                <div class="text-xs text-[var(--ui-muted)]">{{ $board->open_issues_count }} offen</div>
+                            </div>
+                        </div>
+                        @if($boardTotal > 0)
+                            <div class="d-flex items-center gap-2.5">
+                                <div class="flex-grow-1 h-1.5 rounded-full bg-[var(--ui-border)]/40 overflow-hidden">
+                                    <div class="h-full rounded-full bg-[var(--ui-{{ $boardPct === 100 ? 'success' : $color }})] transition-all" style="width: {{ $boardPct }}%"></div>
+                                </div>
+                                <span class="text-xs font-semibold text-[var(--ui-{{ $boardPct === 100 ? 'success' : 'muted' }})] flex-shrink-0 w-8 text-right">{{ $boardPct }}%</span>
+                            </div>
+                        @endif
+                    </a>
+                @endforeach
+
+                {{-- New Board Card --}}
+                <button wire:click="$set('showCreateBoardModal', true)"
+                        class="p-4 rounded-lg border border-dashed border-[var(--ui-border)]/60 hover:border-[var(--ui-primary)]/40 hover:bg-[var(--ui-primary)]/[0.03] transition-colors d-flex items-center justify-center gap-2 text-sm text-[var(--ui-muted)] hover:text-[var(--ui-primary)]">
+                    @svg('heroicon-o-plus', 'w-4 h-4')
+                    Neues Board
+                </button>
+            </div>
+
+            {{-- Archived Boards --}}
+            @if($archivedBoards->isNotEmpty())
+                <div x-data="{ showArchived: false }" class="mt-2">
+                    <button @click="showArchived = !showArchived" class="text-xs text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors d-flex items-center gap-1">
+                        @svg('heroicon-o-archive-box', 'w-3 h-3')
+                        {{ $archivedBoards->count() }} archiviert
+                        <template x-if="!showArchived">@svg('heroicon-o-chevron-right', 'w-3 h-3')</template>
+                        <template x-if="showArchived">@svg('heroicon-o-chevron-down', 'w-3 h-3')</template>
+                    </button>
+                    <div x-show="showArchived" x-collapse class="mt-2 d-flex items-center gap-2 flex-wrap">
+                        @foreach($archivedBoards as $archivedBoard)
+                            <div class="d-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--ui-muted-5)] text-xs text-[var(--ui-muted)]">
+                                @svg('heroicon-o-archive-box', 'w-3 h-3')
+                                {{ $archivedBoard->name }}
+                                <button wire:click="reactivateBoard({{ $archivedBoard->id }})" class="p-0.5 rounded-full hover:bg-[var(--ui-primary)]/10 hover:text-[var(--ui-primary)] transition-colors" title="Reaktivieren">
+                                    @svg('heroicon-o-arrow-path', 'w-3 h-3')
+                                </button>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        </div>
+
+        {{-- Error Occurrences --}}
+        @if($errorSettingsEnabled && $errorOccurrences->count() > 0)
+            <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-danger)]/30 overflow-hidden mb-6">
+                <div class="p-4 border-b border-[var(--ui-border)]/60 d-flex items-center justify-between">
+                    <div class="d-flex items-center gap-2">
+                        <span class="relative flex h-3 w-3">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--ui-danger)] opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-[var(--ui-danger)]"></span>
+                        </span>
+                        <h3 class="text-sm font-semibold text-[var(--ui-secondary)]">Offene Errors</h3>
+                        <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-danger)]/10 text-[var(--ui-danger)] font-medium">{{ $errorOccurrences->count() }}</span>
+                    </div>
+                </div>
+                <div class="divide-y divide-[var(--ui-border)]/40">
+                    @foreach($errorOccurrences as $occurrence)
+                        <div class="p-3 d-flex items-start gap-3 group border-l-3 {{ $occurrence->http_code >= 500 ? 'border-l-[var(--ui-danger)]' : 'border-l-[var(--ui-warning)]' }}">
+                            <div class="flex-shrink-0 mt-0.5">
+                                @if($occurrence->http_code >= 500)
+                                    @svg('heroicon-s-exclamation-triangle', 'w-4 h-4 text-[var(--ui-danger)]')
+                                @else
+                                    @svg('heroicon-o-exclamation-circle', 'w-4 h-4 text-[var(--ui-warning)]')
+                                @endif
+                            </div>
+                            <div class="min-w-0 flex-grow-1">
+                                <div class="text-sm font-medium text-[var(--ui-secondary)] truncate">
+                                    @if($occurrence->http_code)
+                                        <span class="font-mono text-xs px-1 py-0.5 rounded bg-[var(--ui-danger)]/10 text-[var(--ui-danger)] mr-1">{{ $occurrence->http_code }}</span>
+                                    @endif
+                                    {{ $occurrence->getShortExceptionClass() }}
+                                </div>
+                                <div class="text-xs text-[var(--ui-muted)] mt-0.5 truncate">{{ Str::limit($occurrence->message, 100) }}</div>
+                                <div class="text-xs text-[var(--ui-muted)] mt-0.5 font-mono">{{ Str::afterLast($occurrence->file ?? '', '/') }}:{{ $occurrence->line }}</div>
+                            </div>
+                            <div class="flex-shrink-0 text-right">
+                                <div class="text-xs text-[var(--ui-muted)]">{{ $occurrence->last_seen_at?->diffForHumans() }}</div>
+                                @if($occurrence->occurrence_count > 1)
+                                    <div class="text-xs font-medium text-[var(--ui-danger)]">{{ $occurrence->occurrence_count }}x</div>
+                                @endif
+                            </div>
+                            <div class="flex-shrink-0 d-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button wire:click="resolveOccurrence({{ $occurrence->id }})" class="p-1 rounded hover:bg-[var(--ui-success)]/10 text-[var(--ui-muted)] hover:text-[var(--ui-success)] transition-colors" title="Resolve">
+                                    @svg('heroicon-o-check-circle', 'w-4 h-4')
+                                </button>
+                                <button wire:click="ignoreOccurrence({{ $occurrence->id }})" class="p-1 rounded hover:bg-[var(--ui-muted-5)] text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors" title="Ignorieren">
+                                    @svg('heroicon-o-eye-slash', 'w-4 h-4')
+                                </button>
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             </div>
         @endif
-
-        {{-- Stats --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <x-ui-dashboard-tile title="Offene Issues" :count="$totalOpen" icon="clock" variant="warning" size="lg" />
-            <x-ui-dashboard-tile title="Hohe Prioritaet" :count="$totalHighPriority" icon="fire" variant="danger" size="lg" />
-            <x-ui-dashboard-tile title="Ueberfaellig" :count="$totalOverdue" icon="exclamation-circle" variant="danger" size="lg" />
-            <x-ui-dashboard-tile title="Erledigt" :count="$totalDone" icon="check-circle" variant="success" size="lg" />
-        </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             {{-- Letzte Commits --}}
@@ -246,11 +317,9 @@
                         <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $recentCommits->count() }}</span>
                     @endif
                 </div>
-
                 <div>
                     @forelse($recentCommits as $commit)
                         <div class="d-flex items-start gap-3 px-4 py-2.5 hover:bg-[var(--ui-muted-5)] transition-colors group">
-                            {{-- Git Graph Dot --}}
                             <div class="flex-shrink-0 d-flex flex-col items-center mt-1" style="width: 12px;">
                                 <div class="w-2.5 h-2.5 rounded-full border-2 border-[var(--ui-primary)] bg-[var(--ui-surface)]"></div>
                                 @if(!$loop->last)
@@ -340,59 +409,6 @@
             </div>
         </div>
 
-        {{-- Error Occurrences --}}
-        @if($errorSettingsEnabled && $errorOccurrences->count() > 0)
-            <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-danger)]/30 overflow-hidden mb-6">
-                <div class="p-4 border-b border-[var(--ui-border)]/60 d-flex items-center justify-between">
-                    <div class="d-flex items-center gap-2">
-                        <span class="relative flex h-3 w-3">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--ui-danger)] opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-3 w-3 bg-[var(--ui-danger)]"></span>
-                        </span>
-                        <h3 class="text-sm font-semibold text-[var(--ui-secondary)]">Offene Errors</h3>
-                        <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-danger)]/10 text-[var(--ui-danger)] font-medium">{{ $errorOccurrences->count() }}</span>
-                    </div>
-                </div>
-                <div class="divide-y divide-[var(--ui-border)]/40">
-                    @foreach($errorOccurrences as $occurrence)
-                        <div class="p-3 d-flex items-start gap-3 group border-l-3 {{ $occurrence->http_code >= 500 ? 'border-l-[var(--ui-danger)]' : 'border-l-[var(--ui-warning)]' }}">
-                            <div class="flex-shrink-0 mt-0.5">
-                                @if($occurrence->http_code >= 500)
-                                    @svg('heroicon-s-exclamation-triangle', 'w-4 h-4 text-[var(--ui-danger)]')
-                                @else
-                                    @svg('heroicon-o-exclamation-circle', 'w-4 h-4 text-[var(--ui-warning)]')
-                                @endif
-                            </div>
-                            <div class="min-w-0 flex-grow-1">
-                                <div class="text-sm font-medium text-[var(--ui-secondary)] truncate">
-                                    @if($occurrence->http_code)
-                                        <span class="font-mono text-xs px-1 py-0.5 rounded bg-[var(--ui-danger)]/10 text-[var(--ui-danger)] mr-1">{{ $occurrence->http_code }}</span>
-                                    @endif
-                                    {{ $occurrence->getShortExceptionClass() }}
-                                </div>
-                                <div class="text-xs text-[var(--ui-muted)] mt-0.5 truncate">{{ Str::limit($occurrence->message, 100) }}</div>
-                                <div class="text-xs text-[var(--ui-muted)] mt-0.5 font-mono">{{ Str::afterLast($occurrence->file ?? '', '/') }}:{{ $occurrence->line }}</div>
-                            </div>
-                            <div class="flex-shrink-0 text-right">
-                                <div class="text-xs text-[var(--ui-muted)]">{{ $occurrence->last_seen_at?->diffForHumans() }}</div>
-                                @if($occurrence->occurrence_count > 1)
-                                    <div class="text-xs font-medium text-[var(--ui-danger)]">{{ $occurrence->occurrence_count }}x</div>
-                                @endif
-                            </div>
-                            <div class="flex-shrink-0 d-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button wire:click="resolveOccurrence({{ $occurrence->id }})" class="p-1 rounded hover:bg-[var(--ui-success)]/10 text-[var(--ui-muted)] hover:text-[var(--ui-success)] transition-colors" title="Resolve">
-                                    @svg('heroicon-o-check-circle', 'w-4 h-4')
-                                </button>
-                                <button wire:click="ignoreOccurrence({{ $occurrence->id }})" class="p-1 rounded hover:bg-[var(--ui-muted-5)] text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition-colors" title="Ignorieren">
-                                    @svg('heroicon-o-eye-slash', 'w-4 h-4')
-                                </button>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        @endif
-
         {{-- Issues + Discussions --}}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {{-- Letzte offene Issues --}}
@@ -440,87 +456,87 @@
                 </div>
             </div>
 
-            {{-- Zuletzt erledigt --}}
-            <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden">
-                <div class="p-4 border-b border-[var(--ui-border)]/60 d-flex items-center gap-2">
-                    @svg('heroicon-o-check-circle', 'w-4 h-4 text-[var(--ui-success)]')
-                    <h3 class="text-sm font-semibold text-[var(--ui-secondary)]">Zuletzt erledigt</h3>
-                    @if($recentlyDone->isNotEmpty())
-                        <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-success)]/10 text-[var(--ui-success)] font-medium">{{ $recentlyDone->count() }}</span>
-                    @endif
-                </div>
-                <div class="divide-y divide-[var(--ui-border)]/40">
-                    @forelse($recentlyDone as $issue)
-                        <a href="{{ route('dev.packages.issues.show', [$package, $issue]) }}"
-                           wire:navigate
-                           class="d-flex items-center gap-3 p-3 hover:bg-[var(--ui-muted-5)] transition-colors">
-                            <div class="flex-shrink-0">
-                                @svg('heroicon-o-check-circle', 'w-4 h-4 text-[var(--ui-success)]')
-                            </div>
-                            <div class="min-w-0 flex-grow-1">
-                                <div class="text-sm text-[var(--ui-muted)] line-through truncate">{{ $issue->title }}</div>
-                                <div class="text-xs text-[var(--ui-muted)]">
-                                    {{ $issue->board->name }}
-                                    @if($issue->done_at)
-                                        · {{ $issue->done_at->diffForHumans() }}
-                                    @endif
-                                </div>
-                            </div>
-                        </a>
-                    @empty
-                        <div class="p-8 text-center">
-                            <div class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--ui-muted-5)] to-[var(--ui-muted-5)] mb-2">
-                                @svg('heroicon-o-clipboard-document-check', 'w-5 h-5 text-[var(--ui-muted)]')
-                            </div>
-                            <p class="text-sm text-[var(--ui-muted)]">Noch nichts erledigt.</p>
-                        </div>
-                    @endforelse
-                </div>
-            </div>
-        </div>
-
-        {{-- Recent Discussions --}}
-        @if($recentDiscussions->isNotEmpty() || $discussionCount > 0)
-            <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden">
-                <div class="p-4 border-b border-[var(--ui-border)]/60 d-flex items-center justify-between">
-                    <div class="d-flex items-center gap-2">
-                        @svg('heroicon-o-chat-bubble-left-right', 'w-4 h-4 text-[var(--ui-primary)]')
-                        <h3 class="text-sm font-semibold text-[var(--ui-secondary)]">Diskussionen</h3>
-                        @if($discussionCount > 0)
-                            <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $discussionCount }}</span>
+            {{-- Zuletzt erledigt + Diskussionen --}}
+            <div class="space-y-6">
+                {{-- Zuletzt erledigt --}}
+                <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden">
+                    <div class="p-4 border-b border-[var(--ui-border)]/60 d-flex items-center gap-2">
+                        @svg('heroicon-o-check-circle', 'w-4 h-4 text-[var(--ui-success)]')
+                        <h3 class="text-sm font-semibold text-[var(--ui-secondary)]">Zuletzt erledigt</h3>
+                        @if($recentlyDone->isNotEmpty())
+                            <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-success)]/10 text-[var(--ui-success)] font-medium">{{ $recentlyDone->count() }}</span>
                         @endif
                     </div>
-                    <a href="{{ route('dev.packages.discussions', $package) }}" wire:navigate class="text-xs text-[var(--ui-primary)] hover:underline">
-                        Alle anzeigen
-                    </a>
+                    <div class="divide-y divide-[var(--ui-border)]/40">
+                        @forelse($recentlyDone as $issue)
+                            <a href="{{ route('dev.packages.issues.show', [$package, $issue]) }}"
+                               wire:navigate
+                               class="d-flex items-center gap-3 p-3 hover:bg-[var(--ui-muted-5)] transition-colors">
+                                <div class="flex-shrink-0">
+                                    @svg('heroicon-o-check-circle', 'w-4 h-4 text-[var(--ui-success)]')
+                                </div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <div class="text-sm text-[var(--ui-muted)] line-through truncate">{{ $issue->title }}</div>
+                                    <div class="text-xs text-[var(--ui-muted)]">
+                                        {{ $issue->board->name }}
+                                        @if($issue->done_at)
+                                            · {{ $issue->done_at->diffForHumans() }}
+                                        @endif
+                                    </div>
+                                </div>
+                            </a>
+                        @empty
+                            <div class="p-6 text-center">
+                                <p class="text-xs text-[var(--ui-muted)]">Noch nichts erledigt.</p>
+                            </div>
+                        @endforelse
+                    </div>
                 </div>
-                <div class="divide-y divide-[var(--ui-border)]/40">
-                    @foreach($recentDiscussions as $discussion)
-                        <a href="{{ route('dev.packages.discussions', $package) }}"
-                           wire:navigate
-                           class="d-flex items-center gap-3 p-3 hover:bg-[var(--ui-muted-5)] transition-colors">
-                            <div class="flex-shrink-0">
-                                @if($discussion->is_pinned)
-                                    @svg('heroicon-s-bookmark', 'w-4 h-4 text-[var(--ui-primary)]')
-                                @else
-                                    @svg('heroicon-o-chat-bubble-left', 'w-4 h-4 text-[var(--ui-muted)]')
+
+                {{-- Diskussionen --}}
+                @if($recentDiscussions->isNotEmpty() || $discussionCount > 0)
+                    <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden">
+                        <div class="p-4 border-b border-[var(--ui-border)]/60 d-flex items-center justify-between">
+                            <div class="d-flex items-center gap-2">
+                                @svg('heroicon-o-chat-bubble-left-right', 'w-4 h-4 text-[var(--ui-primary)]')
+                                <h3 class="text-sm font-semibold text-[var(--ui-secondary)]">Diskussionen</h3>
+                                @if($discussionCount > 0)
+                                    <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $discussionCount }}</span>
                                 @endif
                             </div>
-                            <div class="min-w-0 flex-grow-1">
-                                <div class="text-sm font-medium text-[var(--ui-secondary)] truncate">{{ $discussion->title }}</div>
-                                <div class="text-xs text-[var(--ui-muted)]">
-                                    {{ $discussion->createdBy?->name }}
-                                    · {{ $discussion->replies_count }} {{ $discussion->replies_count === 1 ? 'Antwort' : 'Antworten' }}
-                                </div>
-                            </div>
-                            <div class="flex-shrink-0 text-xs text-[var(--ui-muted)]">
-                                {{ $discussion->created_at->diffForHumans() }}
-                            </div>
-                        </a>
-                    @endforeach
-                </div>
+                            <a href="{{ route('dev.packages.discussions', $package) }}" wire:navigate class="text-xs text-[var(--ui-primary)] hover:underline">
+                                Alle anzeigen
+                            </a>
+                        </div>
+                        <div class="divide-y divide-[var(--ui-border)]/40">
+                            @foreach($recentDiscussions as $discussion)
+                                <a href="{{ route('dev.packages.discussions', $package) }}"
+                                   wire:navigate
+                                   class="d-flex items-center gap-3 p-3 hover:bg-[var(--ui-muted-5)] transition-colors">
+                                    <div class="flex-shrink-0">
+                                        @if($discussion->is_pinned)
+                                            @svg('heroicon-s-bookmark', 'w-4 h-4 text-[var(--ui-primary)]')
+                                        @else
+                                            @svg('heroicon-o-chat-bubble-left', 'w-4 h-4 text-[var(--ui-muted)]')
+                                        @endif
+                                    </div>
+                                    <div class="min-w-0 flex-grow-1">
+                                        <div class="text-sm font-medium text-[var(--ui-secondary)] truncate">{{ $discussion->title }}</div>
+                                        <div class="text-xs text-[var(--ui-muted)]">
+                                            {{ $discussion->createdBy?->name }}
+                                            · {{ $discussion->replies_count }} {{ $discussion->replies_count === 1 ? 'Antwort' : 'Antworten' }}
+                                        </div>
+                                    </div>
+                                    <div class="flex-shrink-0 text-xs text-[var(--ui-muted)]">
+                                        {{ $discussion->created_at->diffForHumans() }}
+                                    </div>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </div>
-        @endif
+        </div>
         {{-- Documentation --}}
         @if($docPages->isNotEmpty())
             <div class="mt-6">
