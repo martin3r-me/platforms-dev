@@ -361,37 +361,8 @@
                 <label class="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" wire:model.live="errorSettings.enabled"
                            class="w-4 h-4 rounded border-[var(--ui-border)] text-[var(--ui-primary)] focus:ring-[var(--ui-primary)] focus:ring-offset-0">
-                    <span class="text-sm font-medium text-[var(--ui-secondary)]">Error Tracking aktivieren</span>
+                    <span class="text-sm font-medium text-[var(--ui-secondary)]">Errors fuer dieses Package empfangen</span>
                 </label>
-
-                {{-- Ingest Endpoint --}}
-                <div>
-                    <h4 class="text-sm font-semibold text-[var(--ui-secondary)] mb-3">Ingest Endpoint</h4>
-                    @if($errorSettings->ingest_token)
-                        <div class="space-y-2">
-                            <div class="p-3 rounded-lg bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/40">
-                                <div class="text-xs text-[var(--ui-muted)] mb-1">URL (in .env der Deployment-Instanzen eintragen)</div>
-                                <code class="text-xs text-[var(--ui-secondary)] break-all select-all">{{ $errorSettings->getIngestUrl() }}</code>
-                            </div>
-                            <div class="p-3 rounded-lg bg-[var(--ui-primary-5)] border border-[var(--ui-primary)]/20">
-                                <div class="text-xs text-[var(--ui-muted)] mb-1">ENV Variable</div>
-                                <code class="text-xs text-[var(--ui-primary)] font-bold select-all">DEV_ERROR_ENDPOINT_{{ strtoupper(str_replace('-', '_', Str::kebab(class_basename($package->name)))) }}={{ $errorSettings->getIngestUrl() }}</code>
-                            </div>
-                            <x-ui-button variant="danger-outline" size="sm" wire:click="generateIngestToken" wire:confirm="Token neu generieren? Alle Instanzen müssen dann aktualisiert werden.">
-                                @svg('heroicon-o-arrow-path', 'w-3.5 h-3.5')
-                                <span>Token neu generieren</span>
-                            </x-ui-button>
-                        </div>
-                    @else
-                        <div class="text-center py-4">
-                            <p class="text-sm text-[var(--ui-muted)] mb-3">Noch kein Ingest-Token generiert. Klicke auf "Abonnieren" um eine URL zu erhalten.</p>
-                            <x-ui-button variant="primary" size="sm" wire:click="generateIngestToken">
-                                @svg('heroicon-o-bell', 'w-4 h-4')
-                                <span>Abonnieren</span>
-                            </x-ui-button>
-                        </div>
-                    @endif
-                </div>
 
                 {{-- HTTP Codes --}}
                 <div>

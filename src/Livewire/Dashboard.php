@@ -5,6 +5,7 @@ namespace Platform\Dev\Livewire;
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use Platform\Dev\Models\DevPackage;
+use Platform\Dev\Models\DevPackageErrorSettings;
 use Platform\Dev\Models\DevIssue;
 use Platform\Dev\Services\DevPackageService;
 use Platform\Integrations\Models\IntegrationGithubCommit;
@@ -17,6 +18,7 @@ class Dashboard extends Component
     public string $activatePackageDescription = '';
     public ?int $selectedRepoId = null;
     public bool $showActivateModal = false;
+    public bool $showErrorTracking = false;
 
     public function openActivateModal(): void
     {
@@ -88,6 +90,38 @@ class Dashboard extends Component
         } catch (\Throwable $e) {
             return collect();
         }
+    }
+
+    public function generateTeamToken(): void
+    {
+        $user = Auth::user();
+        $team = $user->currentTeam;
+
+        // Find first package with settings, or create settings on first package
+        $package = DevPackage::where('team_id', $team->id)->active()->first();
+        if (!$package) {
+            return;
+        }
+
+        $settings = DevPackageErrorSettings::getOrCreateForPackage($package);
+        $settings->generateToken();
+    }
+
+    public function regenerateTeamToken(): void
+    {
+        $this->generateTeamToken();
+    }
+
+    protected function getTeamIngestUrl(): ?string
+    {
+        $user = Auth::user();
+        $team = $user->currentTeam;
+
+        $settings = DevPackageErrorSettings::whereHas('package', function ($q) use ($team) {
+            $q->where('team_id', $team->id);
+        })->whereNotNull('ingest_token')->where('enabled', true)->first();
+
+        return $settings?->getIngestUrl();
     }
 
     public function render()
@@ -167,6 +201,9 @@ class Dashboard extends Component
 
         $availableRepos = $this->showActivateModal ? $this->getAvailableRepos() : collect();
 
+        $ingestUrl = $this->showErrorTracking ? $this->getTeamIngestUrl() : null;
+        $errorEndpointConfigured = (bool) config('platform.error_endpoint');
+
         return view('dev::livewire.dashboard', [
             'packages' => $packages,
             'totalPackages' => $totalPackages,
@@ -180,6 +217,8 @@ class Dashboard extends Component
             'openPullRequests' => $openPullRequests,
             'packageStats' => $packageStats,
             'availableRepos' => $availableRepos,
+            'ingestUrl' => $ingestUrl,
+            'errorEndpointConfigured' => $errorEndpointConfigured,
         ])->layout('platform::layouts.app');
     }
 }

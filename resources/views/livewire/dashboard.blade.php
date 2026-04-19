@@ -7,6 +7,10 @@
         <x-ui-page-actionbar :breadcrumbs="[
             ['label' => 'Dev', 'icon' => 'code-bracket'],
         ]">
+            <x-ui-button variant="secondary-outline" size="sm" wire:click="$set('showErrorTracking', true)">
+                @svg('heroicon-o-bug-ant', 'w-4 h-4')
+                <span>Error Tracking</span>
+            </x-ui-button>
             <x-ui-button variant="secondary-outline" size="sm" wire:click="openActivateModal">
                 @svg('heroicon-o-plus', 'w-4 h-4')
                 <span>Package aktivieren</span>
@@ -221,6 +225,71 @@
             </div>
         </div>
     </x-ui-page-container>
+
+    {{-- Error Tracking Modal --}}
+    @if($showErrorTracking)
+        <x-ui-modal wire:model="showErrorTracking" title="Error Tracking">
+            <div class="space-y-6">
+                {{-- Status --}}
+                <div class="d-flex items-center gap-3 p-3 rounded-lg {{ $errorEndpointConfigured ? 'bg-[var(--ui-success)]/10 border border-[var(--ui-success)]/30' : 'bg-[var(--ui-warning)]/10 border border-[var(--ui-warning)]/30' }}">
+                    @if($errorEndpointConfigured)
+                        @svg('heroicon-s-check-circle', 'w-5 h-5 text-[var(--ui-success)] flex-shrink-0')
+                        <span class="text-sm text-[var(--ui-success)]">Error Tracking ist aktiv auf dieser Instanz.</span>
+                    @else
+                        @svg('heroicon-s-exclamation-triangle', 'w-5 h-5 text-[var(--ui-warning)] flex-shrink-0')
+                        <span class="text-sm text-[var(--ui-warning)]">DEV_ERROR_ENDPOINT ist nicht konfiguriert.</span>
+                    @endif
+                </div>
+
+                {{-- Ingest URL --}}
+                <div>
+                    <h4 class="text-sm font-semibold text-[var(--ui-secondary)] mb-3">Ingest Endpoint</h4>
+                    <p class="text-xs text-[var(--ui-muted)] mb-3">Dieser Endpoint empfängt Fehler von allen Instanzen. Ein Token, ein Endpoint für das ganze Team.</p>
+
+                    @if($ingestUrl)
+                        <div class="space-y-3">
+                            <div class="p-3 rounded-lg bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/40">
+                                <div class="text-xs text-[var(--ui-muted)] mb-1">Ingest URL</div>
+                                <code class="text-xs text-[var(--ui-secondary)] break-all select-all">{{ $ingestUrl }}</code>
+                            </div>
+                            <div class="p-3 rounded-lg bg-[var(--ui-primary-5)] border border-[var(--ui-primary)]/20">
+                                <div class="text-xs text-[var(--ui-muted)] mb-1">.env Variable (in jede sendende Instanz eintragen)</div>
+                                <code class="text-xs text-[var(--ui-primary)] font-bold select-all">DEV_ERROR_ENDPOINT={{ $ingestUrl }}</code>
+                            </div>
+                            <p class="text-xs text-[var(--ui-muted)]">Nach dem Setzen: <code class="font-mono">php artisan config:cache</code> ausfuehren.</p>
+                            <x-ui-button variant="danger-outline" size="sm" wire:click="regenerateTeamToken" wire:confirm="Token neu generieren? Alle Instanzen muessen dann die neue URL erhalten.">
+                                @svg('heroicon-o-arrow-path', 'w-3.5 h-3.5')
+                                <span>Token neu generieren</span>
+                            </x-ui-button>
+                        </div>
+                    @else
+                        <div class="text-center py-4">
+                            <p class="text-sm text-[var(--ui-muted)] mb-3">Noch kein Ingest-Token generiert.</p>
+                            <x-ui-button variant="primary" size="sm" wire:click="generateTeamToken">
+                                @svg('heroicon-o-shield-check', 'w-4 h-4')
+                                <span>Token generieren</span>
+                            </x-ui-button>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- How it works --}}
+                <div class="p-3 rounded-lg bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/40">
+                    <h4 class="text-xs font-semibold text-[var(--ui-secondary)] mb-2">So funktioniert's</h4>
+                    <ol class="text-xs text-[var(--ui-muted)] space-y-1 list-decimal list-inside">
+                        <li>Token generieren (oben)</li>
+                        <li><code class="font-mono">DEV_ERROR_ENDPOINT</code> in .env jeder Instanz eintragen</li>
+                        <li><code class="font-mono">php artisan config:cache</code></li>
+                        <li>Fehler werden automatisch dem richtigen Package zugeordnet</li>
+                        <li>Per-Package Settings (welche Codes, auto-Issue, etc.) unter dem jeweiligen Package konfigurieren</li>
+                    </ol>
+                </div>
+            </div>
+            <x-slot name="footer">
+                <x-ui-button variant="secondary-outline" wire:click="$set('showErrorTracking', false)">Schliessen</x-ui-button>
+            </x-slot>
+        </x-ui-modal>
+    @endif
 
     {{-- Activate Modal --}}
     @if($showActivateModal)
