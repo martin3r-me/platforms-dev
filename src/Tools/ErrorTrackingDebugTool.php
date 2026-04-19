@@ -9,6 +9,7 @@ use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Services\ErrorReporterRegistry;
 use Platform\Dev\Models\DevErrorOccurrence;
 use Platform\Dev\Models\DevPackage;
+use Platform\Dev\Models\DevPackageErrorSettings;
 use Platform\Dev\Tools\Concerns\ResolvesDevTeam;
 
 class ErrorTrackingDebugTool implements ToolContract, ToolMetadataContract
@@ -22,7 +23,7 @@ class ErrorTrackingDebugTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'Diagnostiziert das Error-Tracking-System: zeigt registrierte Reporter, Error-Settings pro Package, offene Occurrences, Ingest-URLs und ENV-Status.';
+        return 'Diagnostiziert das Error-Tracking-System: zeigt registrierte Packages, Endpoint-Konfiguration, Error-Settings pro Package, offene Occurrences und ENV-Status.';
     }
 
     public function getSchema(): array
@@ -53,119 +54,102 @@ class ErrorTrackingDebugTool implements ToolContract, ToolMetadataContract
             }
             $teamId = (int) $resolved['team_id'];
 
-            $query = DevPackage::where('team_id', $teamId)->with('errorSettings');
-
-            if (!empty($arguments['package_id'])) {
-                $query->where('id', (int) $arguments['package_id']);
-            }
-
-            $packages = $query->orderBy('name')->get();
-
-            if ($packages->isEmpty()) {
-                return ToolResult::success([
-                    'output' => "=== Error Tracking Debug ===\n\nKeine Packages gefunden" .
-                        (!empty($arguments['package_id']) ? " (package_id={$arguments['package_id']})" : '') .
-                        " fuer Team #{$teamId}.",
-                ]);
-            }
-
             $lines = [];
             $lines[] = '=== Error Tracking Debug ===';
             $lines[] = "Team: #{$teamId}";
             $lines[] = "Zeitpunkt: " . now()->toIso8601String();
             $lines[] = '';
 
-            // --- ErrorReporterRegistry Status ---
-            $lines[] = '--- ErrorReporterRegistry ---';
+            // --- Sending Side: ErrorReporterRegistry ---
+            $lines[] = '--- SENDING SIDE (ErrorReporterRegistry) ---';
             try {
                 $registry = resolve(ErrorReporterRegistry::class);
                 $keys = $registry->registeredKeys();
+                $endpoint = $registry->getEndpoint();
+
+                $lines[] = 'Registrierte Packages: ' . (empty($keys) ? '(keine)' : implode(', ', $keys));
+                $lines[] = 'DEV_ERROR_ENDPOINT: ' . ($endpoint ? 'gesetzt (' . substr($endpoint, 0, 50) . '...)' : 'NICHT gesetzt');
+
                 if (empty($keys)) {
-                    $lines[] = 'Registrierte Keys: (keine)';
-                } else {
-                    $lines[] = 'Registrierte Keys: ' . implode(', ', $keys);
+                    $lines[] = 'HINWEIS: Packages registrieren sich automatisch beim Boot.';
+                    $lines[] = '         Wenn leer, fehlt DEV_ERROR_ENDPOINT in der .env (wird erst lazy geladen).';
+                }
+                if (!$endpoint && !empty($keys)) {
+                    $lines[] = 'PROBLEM: Packages registriert aber kein Endpoint! Setze DEV_ERROR_ENDPOINT in .env.';
                 }
             } catch (\Throwable $e) {
                 $lines[] = 'Registry nicht verfuegbar: ' . $e->getMessage();
             }
             $lines[] = '';
 
-            // --- Packages ---
-            foreach ($packages as $package) {
-                $lines[] = '--- Package: ' . $package->name . ' (ID ' . $package->id . ') ---';
+            // --- Receiving Side: Ingest Token ---
+            $lines[] = '--- RECEIVING SIDE (Ingest API) ---';
 
-                $settings = $package->errorSettings;
+            // Find any active ingest token for this team
+            $activeTokenSettings = DevPackageErrorSettings::whereHas('package', function ($q) use ($teamId) {
+                $q->where('team_id', $teamId);
+            })->whereNotNull('ingest_token')->where('enabled', true)->first();
 
-                if (!$settings) {
-                    $lines[] = '  Error Settings: nicht konfiguriert';
-                } else {
-                    $maskedToken = $settings->ingest_token
-                        ? substr($settings->ingest_token, 0, 8) . '...'
-                        : '(nicht gesetzt)';
-
-                    $lines[] = '  Error Settings:';
-                    $lines[] = '    enabled:                ' . ($settings->enabled ? 'ja' : 'nein');
-                    $lines[] = '    ingest_token:           ' . $maskedToken;
-                    $lines[] = '    ingest_url:             ' . ($settings->getIngestUrl() ?? '(nicht verfuegbar)');
-                    $lines[] = '    capture_console_errors: ' . ($settings->capture_console_errors ? 'ja' : 'nein');
-                    $lines[] = '    auto_create_issue:      ' . ($settings->auto_create_issue ? 'ja' : 'nein');
-                    $lines[] = '    dedupe_window_hours:    ' . $settings->dedupe_window_hours;
-                    $lines[] = '    include_stack_trace:    ' . ($settings->include_stack_trace ? 'ja' : 'nein');
-                    $lines[] = '    capture_codes:          ' . implode(', ', $settings->getCaptureCodes());
+            if ($activeTokenSettings) {
+                $ingestUrl = $activeTokenSettings->getIngestUrl();
+                $lines[] = 'Ingest-URL: ' . ($ingestUrl ?? '(nicht verfuegbar)');
+                $lines[] = 'Token-Owner: ' . ($activeTokenSettings->package->name ?? '?');
+                $lines[] = '';
+                if ($ingestUrl) {
+                    $lines[] = '.env Konfiguration fuer sendende Instanzen:';
+                    $lines[] = '  DEV_ERROR_ENDPOINT=' . $ingestUrl;
                 }
+            } else {
+                $lines[] = 'Kein aktiver Ingest-Token gefunden.';
+                $lines[] = 'TIPP: Generiere einen Token in den Error-Settings eines Packages.';
+            }
+            $lines[] = '';
 
-                // Open occurrences
+            // --- Packages ---
+            $query = DevPackage::where('team_id', $teamId)->with('errorSettings');
+            if (!empty($arguments['package_id'])) {
+                $query->where('id', (int) $arguments['package_id']);
+            }
+            $packages = $query->orderBy('name')->get();
+
+            $lines[] = '--- PACKAGES ---';
+            foreach ($packages as $package) {
+                $settings = $package->errorSettings;
                 $openCount = DevErrorOccurrence::where('dev_package_id', $package->id)
                     ->where('status', DevErrorOccurrence::STATUS_OPEN)
                     ->count();
 
-                $lines[] = '  Offene Occurrences: ' . $openCount;
-
-                // Last error occurrence
                 $lastOccurrence = DevErrorOccurrence::where('dev_package_id', $package->id)
                     ->orderByDesc('last_seen_at')
                     ->first();
 
-                if ($lastOccurrence) {
-                    $lines[] = '  Letzter Fehler:';
-                    $lines[] = '    exception_class:   ' . ($lastOccurrence->exception_class ?? '-');
-                    $lines[] = '    message:           ' . mb_substr($lastOccurrence->message ?? '-', 0, 120);
-                    $lines[] = '    last_seen_at:      ' . ($lastOccurrence->last_seen_at?->toIso8601String() ?? '-');
-                    $lines[] = '    occurrence_count:  ' . $lastOccurrence->occurrence_count;
-                    $lines[] = '    status:            ' . $lastOccurrence->status;
-                } else {
-                    $lines[] = '  Letzter Fehler: (keine Occurrences vorhanden)';
-                }
-
-                // ENV status - derive key from package name
-                // Package name like "platforms-organization" → try both long and short form
-                $envKeyLong = 'DEV_ERROR_ENDPOINT_' . strtoupper(str_replace('-', '_', $package->name));
-                $envValueLong = getenv($envKeyLong) ?: env($envKeyLong);
-
-                // Short form: strip "platform-" or "platforms-" prefix
-                $shortName = preg_replace('/^platforms?-/', '', $package->name);
-                $envKeyShort = 'DEV_ERROR_ENDPOINT_' . strtoupper(str_replace('-', '_', $shortName));
-                $envValueShort = ($envKeyShort !== $envKeyLong) ? (getenv($envKeyShort) ?: env($envKeyShort)) : null;
-
-                $activeEnv = $envValueLong ? $envKeyLong : ($envValueShort ? $envKeyShort : null);
-                $lines[] = '  ENV Status:';
-                if ($activeEnv) {
-                    $lines[] = '    ' . $activeEnv . ': gesetzt';
-                } else {
-                    $lines[] = '    ' . $envKeyShort . ': NICHT gesetzt';
-                    if ($envKeyLong !== $envKeyShort) {
-                        $lines[] = '    ' . $envKeyLong . ': NICHT gesetzt';
-                    }
-                }
-
-                // Suggest configuration if ingest URL is available but ENV not set
-                if (!$activeEnv && $settings && $settings->getIngestUrl()) {
-                    $lines[] = '  TIPP: Fuege in .env hinzu:';
-                    $lines[] = '    ' . $envKeyShort . '=' . $settings->getIngestUrl();
-                }
-
                 $lines[] = '';
+                $lines[] = '  ' . $package->name . ' (ID ' . $package->id . ')';
+
+                if ($settings) {
+                    $lines[] = '    enabled=' . ($settings->enabled ? 'ja' : 'nein')
+                        . ' | auto_issue=' . ($settings->auto_create_issue ? 'ja' : 'nein')
+                        . ' | dedupe=' . $settings->dedupe_window_hours . 'h'
+                        . ' | console=' . ($settings->capture_console_errors ? 'ja' : 'nein');
+                    $lines[] = '    capture_codes: ' . implode(', ', $settings->getCaptureCodes());
+                } else {
+                    $lines[] = '    Error Settings: nicht konfiguriert';
+                }
+
+                $lines[] = '    Offene Errors: ' . $openCount;
+
+                if ($lastOccurrence) {
+                    $lines[] = '    Letzter: ' . ($lastOccurrence->getShortExceptionClass() ?? '-')
+                        . ' (' . ($lastOccurrence->last_seen_at?->diffForHumans() ?? '-') . ')'
+                        . ' x' . $lastOccurrence->occurrence_count;
+                }
             }
+
+            if ($packages->isEmpty()) {
+                $lines[] = '  (keine Packages gefunden)';
+            }
+
+            $lines[] = '';
 
             return ToolResult::success([
                 'output' => implode("\n", $lines),

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Platform\Dev\Models\DevErrorOccurrence;
 use Platform\Dev\Models\DevIssue;
+use Platform\Dev\Models\DevPackage;
 use Platform\Dev\Models\DevPackageErrorSettings;
 use Illuminate\Support\Facades\Log;
 
@@ -14,13 +15,16 @@ class ErrorIngestController extends Controller
 {
     public function ingest(Request $request, string $token): JsonResponse
     {
-        $settings = DevPackageErrorSettings::where('ingest_token', $token)
+        // Token authenticates the team (any package's token in that team works)
+        $tokenSettings = DevPackageErrorSettings::where('ingest_token', $token)
             ->where('enabled', true)
             ->first();
 
-        if (!$settings) {
+        if (!$tokenSettings) {
             return response()->json(['error' => 'Invalid or disabled token'], 403);
         }
+
+        $teamId = $tokenSettings->team_id;
 
         $data = $request->validate([
             'package_key' => 'nullable|string|max:100',
@@ -40,19 +44,42 @@ class ErrorIngestController extends Controller
             'extra' => 'nullable|array',
         ]);
 
+        // Resolve target package by package_key from payload
+        $packageKey = $data['package_key'] ?? null;
+        $targetPackage = null;
+        $settings = null;
+
+        if ($packageKey) {
+            $targetPackage = $this->resolvePackage($teamId, $packageKey);
+        }
+
+        if ($targetPackage) {
+            $settings = DevPackageErrorSettings::where('dev_package_id', $targetPackage->id)->first();
+            // Auto-create settings if missing
+            if (!$settings) {
+                $settings = DevPackageErrorSettings::getOrCreateForPackage($targetPackage);
+            }
+        } else {
+            // Fallback: use the package that owns the token
+            $targetPackage = $tokenSettings->package;
+            $settings = $tokenSettings;
+        }
+
+        if (!$settings->enabled) {
+            return response()->json(['status' => 'skipped', 'reason' => 'package_disabled'], 200);
+        }
+
         $httpCode = $data['http_code'] ?? null;
 
-        // Check if this HTTP code should be captured
         if ($httpCode && !$settings->shouldCaptureCode($httpCode)) {
             return response()->json(['status' => 'skipped', 'reason' => 'http_code_not_tracked'], 200);
         }
 
-        // Console error check
         if (($data['is_console'] ?? false) && !$settings->capture_console_errors) {
             return response()->json(['status' => 'skipped', 'reason' => 'console_errors_disabled'], 200);
         }
 
-        // Deduplication hash
+        // Deduplication
         $hash = DevErrorOccurrence::generateHashFromComponents(
             $data['exception_class'],
             $data['file'] ?? null,
@@ -61,7 +88,7 @@ class ErrorIngestController extends Controller
         );
 
         $existing = DevErrorOccurrence::findExistingInDedupeWindow(
-            $settings->dev_package_id,
+            $targetPackage->id,
             $hash,
             $settings->dedupe_window_hours
         );
@@ -93,10 +120,9 @@ class ErrorIngestController extends Controller
             ], 200);
         }
 
-        // Create new occurrence
         $occurrence = DevErrorOccurrence::create([
-            'dev_package_id' => $settings->dev_package_id,
-            'team_id' => $settings->team_id,
+            'dev_package_id' => $targetPackage->id,
+            'team_id' => $teamId,
             'error_hash' => $hash,
             'exception_class' => $data['exception_class'],
             'message' => mb_substr($data['message'] ?? '', 0, 2000),
@@ -110,7 +136,6 @@ class ErrorIngestController extends Controller
             'status' => DevErrorOccurrence::STATUS_OPEN,
         ]);
 
-        // Auto-create issue
         if ($settings->auto_create_issue) {
             $issue = $this->createIssue($occurrence, $settings, $httpCode);
             if ($issue) {
@@ -120,7 +145,8 @@ class ErrorIngestController extends Controller
 
         Log::info('[Dev ErrorIngest] New occurrence', [
             'occurrence_id' => $occurrence->id,
-            'package_id' => $settings->dev_package_id,
+            'package' => $targetPackage->name,
+            'package_key' => $packageKey,
             'exception' => $data['exception_class'],
             'instance' => $data['instance'] ?? 'unknown',
         ]);
@@ -129,6 +155,36 @@ class ErrorIngestController extends Controller
             'status' => 'created',
             'occurrence_id' => $occurrence->id,
         ], 201);
+    }
+
+    /**
+     * Resolve DevPackage by package_key within a team.
+     * Tries multiple matching strategies.
+     */
+    protected function resolvePackage(int $teamId, string $packageKey): ?DevPackage
+    {
+        $packages = DevPackage::where('team_id', $teamId)->get();
+
+        foreach ($packages as $package) {
+            // Exact match: package_key == package name
+            if ($package->name === $packageKey) {
+                return $package;
+            }
+
+            // Key is short form (e.g. "organization"), package name has prefix
+            // "platforms-organization", "platform-organization"
+            $shortName = preg_replace('/^platforms?-/', '', $package->name);
+            if ($shortName === $packageKey) {
+                return $package;
+            }
+
+            // Key is kebab, package name is kebab with prefix
+            if (str_ends_with($package->name, '-' . $packageKey)) {
+                return $package;
+            }
+        }
+
+        return null;
     }
 
     protected function createIssue(
