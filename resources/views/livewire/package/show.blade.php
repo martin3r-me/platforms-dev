@@ -114,15 +114,31 @@
 
     <x-slot name="activity">
         <x-ui-page-sidebar title="Aktivitaeten" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
-            <div class="p-4 space-y-4">
-                <div class="text-sm text-[var(--ui-muted)]">Letzte Aktivitaeten</div>
-                <div class="space-y-3 text-sm">
-                    @foreach(($activities ?? []) as $activity)
-                        <div class="p-2 rounded border border-[var(--ui-border)]/60 bg-[var(--ui-muted-5)]">
-                            <div class="font-medium text-[var(--ui-secondary)] truncate">{{ $activity['title'] ?? 'Aktivitaet' }}</div>
-                            <div class="text-[var(--ui-muted)]">{{ $activity['time'] ?? '' }}</div>
+            <div class="p-6">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-4">Letzte Aktivitaeten</h3>
+                <div class="space-y-3">
+                    @forelse(($activities ?? []) as $activity)
+                        <div class="p-3 rounded-lg border border-[var(--ui-border)]/40 bg-[var(--ui-muted-5)] hover:bg-[var(--ui-muted)] transition-colors">
+                            <div class="flex items-start justify-between gap-2 mb-1">
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-[var(--ui-secondary)] leading-snug">
+                                        {{ $activity['title'] ?? 'Aktivitaet' }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-[var(--ui-muted)]">
+                                @svg('heroicon-o-clock', 'w-3 h-3')
+                                <span>{{ $activity['time'] ?? '' }}</span>
+                            </div>
                         </div>
-                    @endforeach
+                    @empty
+                        <div class="py-8 text-center">
+                            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--ui-muted-5)] mb-3">
+                                @svg('heroicon-o-clock', 'w-6 h-6 text-[var(--ui-muted)]')
+                            </div>
+                            <p class="text-sm text-[var(--ui-muted)]">Noch keine Aktivitaeten</p>
+                        </div>
+                    @endforelse
                 </div>
             </div>
         </x-ui-page-sidebar>
@@ -131,10 +147,22 @@
     <x-ui-page-container>
         @if($editingPackage)
             {{-- Package Edit Modal --}}
-            <x-ui-modal wire:model="editingPackage" size="lg">
-                <x-slot name="header">Package bearbeiten</x-slot>
-                <div class="space-y-4">
-                    <x-ui-form-grid :cols="3" :gap="4">
+            <x-ui-modal wire:model="editingPackage" size="md" :backdropClosable="true" :escClosable="true">
+                <x-slot name="header">
+                    <div class="flex items-center gap-3">
+                        <div class="flex-shrink-0">
+                            <div class="w-10 h-10 bg-[var(--ui-primary-10)] rounded-lg flex items-center justify-center">
+                                @svg('heroicon-o-pencil-square', 'w-5 h-5 text-[var(--ui-primary)]')
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-[var(--ui-secondary)]">Package bearbeiten</h3>
+                            <p class="text-sm text-[var(--ui-muted)]">Name, Icon und Verantwortlichen anpassen</p>
+                        </div>
+                    </div>
+                </x-slot>
+                <div class="space-y-6">
+                    <x-ui-form-grid :cols="3" :gap="6">
                         <div class="col-span-2">
                             <x-ui-input-text wire:model="editPackageName" label="Name" required />
                         </div>
@@ -153,9 +181,14 @@
                     <x-ui-input-textarea wire:model="editPackageDescription" label="Beschreibung" rows="3" />
                 </div>
                 <x-slot name="footer">
-                    <div class="d-flex justify-end gap-2">
-                        <x-ui-button variant="secondary-outline" wire:click="cancelEditPackage">Abbrechen</x-ui-button>
-                        <x-ui-button variant="primary" wire:click="savePackage">Speichern</x-ui-button>
+                    <div class="flex justify-end gap-3">
+                        <x-ui-button variant="secondary-outline" size="sm" wire:click="cancelEditPackage">Abbrechen</x-ui-button>
+                        <x-ui-button variant="primary" size="sm" wire:click="savePackage">
+                            <span class="inline-flex items-center gap-2">
+                                @svg('heroicon-o-check', 'w-4 h-4')
+                                Speichern
+                            </span>
+                        </x-ui-button>
                     </div>
                 </x-slot>
             </x-ui-modal>
@@ -618,12 +651,22 @@
 
     {{-- Create Board Modal --}}
     @if($showCreateBoardModal)
-        <x-ui-modal wire:model="showCreateBoardModal" size="lg">
+        <x-ui-modal wire:model="showCreateBoardModal" size="md" :backdropClosable="true" :escClosable="true">
             <x-slot name="header">
-                Neues Feature Board
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-[var(--ui-primary-10)] rounded-lg flex items-center justify-center">
+                            @svg('heroicon-o-view-columns', 'w-5 h-5 text-[var(--ui-primary)]')
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-[var(--ui-secondary)]">Neues Board</h3>
+                        <p class="text-sm text-[var(--ui-muted)]">Feature Board erstellen</p>
+                    </div>
+                </div>
             </x-slot>
 
-            <div class="space-y-4">
+            <div class="space-y-6">
                 <x-ui-input-text
                     name="newBoardName"
                     wire:model.live="newBoardName"
@@ -641,13 +684,15 @@
             </div>
 
             <x-slot name="footer">
-                <div class="d-flex justify-end gap-2">
-                    <x-ui-button variant="secondary-outline" wire:click="$set('showCreateBoardModal', false)">
+                <div class="flex justify-end gap-3">
+                    <x-ui-button variant="secondary-outline" size="sm" wire:click="$set('showCreateBoardModal', false)">
                         Abbrechen
                     </x-ui-button>
-                    <x-ui-button variant="primary" wire:click="createBoard">
-                        @svg('heroicon-o-plus', 'w-4 h-4 mr-2')
-                        Erstellen
+                    <x-ui-button variant="primary" size="sm" wire:click="createBoard">
+                        <span class="inline-flex items-center gap-2">
+                            @svg('heroicon-o-plus', 'w-4 h-4')
+                            Erstellen
+                        </span>
                     </x-ui-button>
                 </div>
             </x-slot>
@@ -656,7 +701,21 @@
 
     {{-- Error Tracking Settings Modal --}}
     @if($showErrorSettings && $errorSettings)
-        <x-ui-modal wire:model="showErrorSettings" title="Error Tracking Settings">
+        <x-ui-modal wire:model="showErrorSettings" size="md" :backdropClosable="true" :escClosable="true">
+            <x-slot name="header">
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-[var(--ui-danger)]/10 rounded-lg flex items-center justify-center">
+                            @svg('heroicon-o-bug-ant', 'w-5 h-5 text-[var(--ui-danger)]')
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-[var(--ui-secondary)]">Error Tracking Settings</h3>
+                        <p class="text-sm text-[var(--ui-muted)]">Fehler-Erfassung fuer {{ $package->name }}</p>
+                    </div>
+                </div>
+            </x-slot>
+
             <div class="space-y-6">
                 {{-- Master Toggle --}}
                 <label class="flex items-center gap-3 cursor-pointer">
@@ -668,7 +727,7 @@
                 {{-- HTTP Codes --}}
                 <div>
                     <h4 class="text-sm font-semibold text-[var(--ui-secondary)] mb-3">HTTP Status Codes</h4>
-                    <div class="d-flex items-center gap-2 flex-wrap">
+                    <div class="flex items-center gap-2 flex-wrap">
                         @foreach($availableHttpCodes as $code)
                             <button type="button"
                                     wire:click="toggleHttpCode({{ $code }})"
@@ -708,9 +767,14 @@
                 </div>
             </div>
             <x-slot name="footer">
-                <div class="d-flex items-center justify-end gap-2">
-                    <x-ui-button variant="secondary-outline" wire:click="$set('showErrorSettings', false)">Abbrechen</x-ui-button>
-                    <x-ui-button variant="primary" wire:click="saveErrorSettings">Speichern</x-ui-button>
+                <div class="flex justify-end gap-3">
+                    <x-ui-button variant="secondary-outline" size="sm" wire:click="$set('showErrorSettings', false)">Abbrechen</x-ui-button>
+                    <x-ui-button variant="primary" size="sm" wire:click="saveErrorSettings">
+                        <span class="inline-flex items-center gap-2">
+                            @svg('heroicon-o-check', 'w-4 h-4')
+                            Speichern
+                        </span>
+                    </x-ui-button>
                 </div>
             </x-slot>
         </x-ui-modal>

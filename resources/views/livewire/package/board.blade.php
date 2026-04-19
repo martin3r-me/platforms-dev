@@ -100,75 +100,91 @@
     <x-slot name="sidebar">
         <x-ui-page-sidebar title="Board-Uebersicht" width="w-80" :defaultOpen="true" side="left">
             <div class="p-6 space-y-6">
-				{{-- Board-Info --}}
+                {{-- Board-Info --}}
                 <div>
                     <h3 class="text-lg font-semibold text-[var(--ui-secondary)] mb-2">{{ $board->name }}</h3>
                     <div class="text-sm text-[var(--ui-muted)]">{{ $board->description ?? 'Keine Beschreibung' }}</div>
                 </div>
 
-				{{-- Ansicht --}}
-				<div>
-					<h3 class="text-sm font-bold text-[var(--ui-secondary)] uppercase tracking-wider mb-4">Ansicht</h3>
-					<div class="space-y-2">
-						<label class="flex items-center gap-3 cursor-pointer">
-							<input
-								type="checkbox"
-								wire:click="toggleShowDone"
-								@if($showDone) checked @endif
-								class="w-4 h-4 rounded border-[var(--ui-border)] text-[var(--ui-primary)] focus:ring-[var(--ui-primary)] focus:ring-offset-0"
-							>
-							<span class="text-sm text-[var(--ui-secondary)]">Erledigte Issues anzeigen</span>
-						</label>
-					</div>
-				</div>
+                {{-- Ansicht --}}
+                <div>
+                    <h3 class="text-sm font-bold text-[var(--ui-secondary)] uppercase tracking-wider mb-4">Ansicht</h3>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                wire:click="toggleShowDone"
+                                @if($showDone) checked @endif
+                                class="w-4 h-4 rounded border-[var(--ui-border)] text-[var(--ui-primary)] focus:ring-[var(--ui-primary)] focus:ring-offset-0"
+                            >
+                            <span class="text-sm text-[var(--ui-secondary)]">Erledigte Issues anzeigen</span>
+                        </label>
+                    </div>
+                </div>
 
-				{{-- Statistiken --}}
+                {{-- Statistiken --}}
                 <div class="grid grid-cols-2 gap-2">
-					<x-ui-dashboard-tile title="Offen" :count="$groups->filter(fn($g) => !($g->isDoneGroup ?? false))->sum(fn($g) => $g->tasks->count())" icon="clock" variant="warning" size="sm" />
-					<x-ui-dashboard-tile title="Gesamt" :count="$groups->flatMap(fn($g) => $g->tasks)->count()" icon="document-text" variant="secondary" size="sm" />
-					<x-ui-dashboard-tile title="Erledigt" :count="$groups->filter(fn($g) => $g->isDoneGroup ?? false)->sum(fn($g) => $g->tasks->count())" icon="check-circle" variant="success" size="sm" />
-					<x-ui-dashboard-tile title="Ohne Faelligkeit" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => !$t->due_date)->count()" icon="calendar" variant="neutral" size="sm" />
-					<x-ui-dashboard-tile title="Hohe Prioritaet" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => ($t->priority instanceof \BackedEnum ? $t->priority->value : $t->priority) === 'high')->count()" icon="fire" variant="danger" size="sm" />
-					<x-ui-dashboard-tile title="Ueberfaellig" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => $t->due_date && $t->due_date->isPast() && !$t->is_done)->count()" icon="exclamation-circle" variant="danger" size="sm" />
-				</div>
+                    <x-ui-dashboard-tile title="Offen" :count="$groups->filter(fn($g) => !($g->isDoneGroup ?? false))->sum(fn($g) => $g->tasks->count())" icon="clock" variant="warning" size="sm" />
+                    <x-ui-dashboard-tile title="Gesamt" :count="$groups->flatMap(fn($g) => $g->tasks)->count()" icon="document-text" variant="secondary" size="sm" />
+                    <x-ui-dashboard-tile title="Erledigt" :count="$groups->filter(fn($g) => $g->isDoneGroup ?? false)->sum(fn($g) => $g->tasks->count())" icon="check-circle" variant="success" size="sm" />
+                    <x-ui-dashboard-tile title="Ohne Faelligkeit" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => !$t->due_date)->count()" icon="calendar" variant="neutral" size="sm" />
+                    <x-ui-dashboard-tile title="Hohe Prioritaet" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => ($t->priority instanceof \BackedEnum ? $t->priority->value : $t->priority) === 'high')->count()" icon="fire" variant="danger" size="sm" />
+                    <x-ui-dashboard-tile title="Ueberfaellig" :count="$groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => $t->due_date && $t->due_date->isPast() && !$t->is_done)->count()" icon="exclamation-circle" variant="danger" size="sm" />
+                </div>
 
-				{{-- Erledigte Issues --}}
-				@php $completedIssues = $groups->filter(fn($g) => $g->isDoneGroup ?? false)->flatMap(fn($g) => $g->tasks); @endphp
-				@if($completedIssues->count() > 0)
-					<div>
+                {{-- Erledigte Issues --}}
+                @php $completedIssues = $groups->filter(fn($g) => $g->isDoneGroup ?? false)->flatMap(fn($g) => $g->tasks); @endphp
+                @if($completedIssues->count() > 0)
+                    <div>
                         <h4 class="font-medium text-[var(--ui-secondary)] mb-3">Erledigte Issues ({{ $completedIssues->count() }})</h4>
                         <div class="space-y-1 max-h-60 overflow-y-auto">
-							@foreach($completedIssues->take(10) as $issue)
+                            @foreach($completedIssues->take(10) as $issue)
                                 <a href="{{ route('dev.packages.issues.show', [$package, $issue]) }}" class="block p-2 rounded text-sm border border-[var(--ui-border)]/60 bg-[var(--ui-muted-5)] hover:bg-[var(--ui-primary-5)] transition" wire:navigate>
-									<div class="d-flex items-center gap-2">
+                                    <div class="d-flex items-center gap-2">
                                         <x-heroicon-o-check-circle class="w-4 h-4 text-[var(--ui-success)]"/>
-										<span class="truncate">{{ $issue->title }}</span>
-									</div>
-								</a>
-							@endforeach
+                                        <span class="truncate">{{ $issue->title }}</span>
+                                    </div>
+                                </a>
+                            @endforeach
                             @if($completedIssues->count() > 10)
                                 <div class="text-xs text-[var(--ui-muted)] italic text-center">+{{ $completedIssues->count() - 10 }} weitere</div>
-							@endif
-						</div>
-					</div>
-				@else
+                            @endif
+                        </div>
+                    </div>
+                @else
                     <div class="text-sm text-[var(--ui-muted)] italic">Noch keine erledigten Issues</div>
-				@endif
+                @endif
             </div>
-		</x-ui-page-sidebar>
+        </x-ui-page-sidebar>
     </x-slot>
 
     <x-slot name="activity">
-        <x-ui-page-sidebar title="Aktivitaeten" width="w-80" defaultOpen="false" storeKey="activityOpen" side="right">
-            <div class="p-4 space-y-4">
-                <div class="text-sm text-[var(--ui-muted)]">Letzte Aktivitaeten</div>
-                <div class="space-y-3 text-sm">
-                    @foreach(($activities ?? []) as $activity)
-                        <div class="p-2 rounded border border-[var(--ui-border)]/60 bg-[var(--ui-muted-5)]">
-                            <div class="font-medium text-[var(--ui-secondary)] truncate">{{ $activity['title'] ?? 'Aktivitaet' }}</div>
-                            <div class="text-[var(--ui-muted)]">{{ $activity['time'] ?? '' }}</div>
+        <x-ui-page-sidebar title="Aktivitaeten" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
+            <div class="p-6">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-4">Letzte Aktivitaeten</h3>
+                <div class="space-y-3">
+                    @forelse(($activities ?? []) as $activity)
+                        <div class="p-3 rounded-lg border border-[var(--ui-border)]/40 bg-[var(--ui-muted-5)] hover:bg-[var(--ui-muted)] transition-colors">
+                            <div class="flex items-start justify-between gap-2 mb-1">
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-[var(--ui-secondary)] leading-snug">
+                                        {{ $activity['title'] ?? 'Aktivitaet' }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-[var(--ui-muted)]">
+                                @svg('heroicon-o-clock', 'w-3 h-3')
+                                <span>{{ $activity['time'] ?? '' }}</span>
+                            </div>
                         </div>
-                    @endforeach
+                    @empty
+                        <div class="py-8 text-center">
+                            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--ui-muted-5)] mb-3">
+                                @svg('heroicon-o-clock', 'w-6 h-6 text-[var(--ui-muted)]')
+                            </div>
+                            <p class="text-sm text-[var(--ui-muted)]">Noch keine Aktivitaeten</p>
+                        </div>
+                    @endforelse
                 </div>
             </div>
         </x-ui-page-sidebar>
@@ -176,15 +192,15 @@
 
     <!-- Kanban-Board -->
     <x-ui-kanban-container class="h-full" sortable="updateSlotOrder" sortable-group="updateIssueOrder">
-		@foreach($groups->filter(fn ($g) => !($g->isDoneGroup ?? false)) as $column)
-			<x-ui-kanban-column :sortable-id="$column->id" :scrollable="true">
+        @foreach($groups->filter(fn ($g) => !($g->isDoneGroup ?? false)) as $column)
+            <x-ui-kanban-column :sortable-id="$column->id" :scrollable="true">
                 <x-slot name="title">
                     <span class="flex items-center gap-1.5">
                         {{ $column->label ?? $column->name ?? 'Spalte' }}
                         <span class="text-xs text-[var(--ui-muted)] font-normal">({{ $column->tasks->count() }})</span>
                     </span>
                 </x-slot>
-				<x-slot name="headerActions">
+                <x-slot name="headerActions">
                     <button
                         wire:click="createIssue('{{ $column->id }}')"
                         class="p-1 rounded bg-[var(--ui-primary-5)] text-[var(--ui-primary)] hover:bg-[var(--ui-primary)]/20 transition-colors"
@@ -197,35 +213,45 @@
                         title="Spalte bearbeiten">
                         @svg('heroicon-o-cog-6-tooth', 'w-4 h-4')
                     </button>
-				</x-slot>
+                </x-slot>
 
-				@foreach($column->tasks as $issue)
-					@include('dev::livewire.package.partials.issue-card', ['issue' => $issue])
-				@endforeach
-			</x-ui-kanban-column>
-		@endforeach
+                @foreach($column->tasks as $issue)
+                    @include('dev::livewire.package.partials.issue-card', ['issue' => $issue])
+                @endforeach
+            </x-ui-kanban-column>
+        @endforeach
 
-		{{-- ERLEDIGT Spalte --}}
-		@if($showDone)
-			@php $doneGroup = $groups->first(fn($g) => ($g->isDoneGroup ?? false)); @endphp
-			@if($doneGroup)
-				<x-ui-kanban-column :title="($doneGroup->label ?? 'Erledigt')" :sortable-id="null" :scrollable="true" :muted="true">
-					@foreach($doneGroup->tasks as $issue)
-						@include('dev::livewire.package.partials.issue-card', ['issue' => $issue])
-					@endforeach
-				</x-ui-kanban-column>
-			@endif
-		@endif
+        {{-- ERLEDIGT Spalte --}}
+        @if($showDone)
+            @php $doneGroup = $groups->first(fn($g) => ($g->isDoneGroup ?? false)); @endphp
+            @if($doneGroup)
+                <x-ui-kanban-column :title="($doneGroup->label ?? 'Erledigt')" :sortable-id="null" :scrollable="true" :muted="true">
+                    @foreach($doneGroup->tasks as $issue)
+                        @include('dev::livewire.package.partials.issue-card', ['issue' => $issue])
+                    @endforeach
+                </x-ui-kanban-column>
+            @endif
+        @endif
     </x-ui-kanban-container>
 
     {{-- Board Settings Modal --}}
     @if($showBoardSettings)
-        <x-ui-modal wire:model="showBoardSettings" size="lg">
+        <x-ui-modal wire:model="showBoardSettings" size="md" :backdropClosable="true" :escClosable="true">
             <x-slot name="header">
-                Board bearbeiten
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-[var(--ui-primary-10)] rounded-lg flex items-center justify-center">
+                            @svg('heroicon-o-pencil-square', 'w-5 h-5 text-[var(--ui-primary)]')
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-[var(--ui-secondary)]">Board bearbeiten</h3>
+                        <p class="text-sm text-[var(--ui-muted)]">Name und Beschreibung anpassen</p>
+                    </div>
+                </div>
             </x-slot>
 
-            <div class="space-y-4">
+            <div class="space-y-6">
                 <x-ui-input-text
                     name="editBoardName"
                     wire:model.live="editBoardName"
@@ -241,13 +267,15 @@
             </div>
 
             <x-slot name="footer">
-                <div class="d-flex justify-end gap-2">
-                    <x-ui-button variant="secondary-outline" wire:click="$set('showBoardSettings', false)">
+                <div class="flex justify-end gap-3">
+                    <x-ui-button variant="secondary-outline" size="sm" wire:click="$set('showBoardSettings', false)">
                         Abbrechen
                     </x-ui-button>
-                    <x-ui-button variant="primary" wire:click="saveBoardSettings">
-                        @svg('heroicon-o-check', 'w-4 h-4 mr-2')
-                        Speichern
+                    <x-ui-button variant="primary" size="sm" wire:click="saveBoardSettings">
+                        <span class="inline-flex items-center gap-2">
+                            @svg('heroicon-o-check', 'w-4 h-4')
+                            Speichern
+                        </span>
                     </x-ui-button>
                 </div>
             </x-slot>
@@ -256,19 +284,41 @@
 
     {{-- Slot Settings Modal --}}
     @if($showSlotSettings)
-        <x-ui-modal wire:model="showSlotSettings" title="Spalte bearbeiten">
-            <div class="space-y-4">
+        <x-ui-modal wire:model="showSlotSettings" size="md" :backdropClosable="true" :escClosable="true">
+            <x-slot name="header">
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-[var(--ui-primary-10)] rounded-lg flex items-center justify-center">
+                            @svg('heroicon-o-view-columns', 'w-5 h-5 text-[var(--ui-primary)]')
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-[var(--ui-secondary)]">Spalte bearbeiten</h3>
+                        <p class="text-sm text-[var(--ui-muted)]">Name aendern oder Spalte loeschen</p>
+                    </div>
+                </div>
+            </x-slot>
+
+            <div class="space-y-6">
                 <x-ui-input-text wire:model="editSlotName" label="Name" required />
             </div>
+
             <x-slot name="footer">
-                <div class="d-flex items-center justify-between w-full">
+                <div class="flex items-center justify-between w-full">
                     <x-ui-button variant="danger-outline" size="sm" wire:click="deleteSlot" wire:confirm="Spalte wirklich loeschen? Issues werden in den Backlog verschoben.">
-                        @svg('heroicon-o-trash', 'w-4 h-4')
-                        <span>Loeschen</span>
+                        <span class="inline-flex items-center gap-2">
+                            @svg('heroicon-o-trash', 'w-4 h-4')
+                            Loeschen
+                        </span>
                     </x-ui-button>
-                    <div class="d-flex items-center gap-2">
-                        <x-ui-button variant="secondary-outline" wire:click="$set('showSlotSettings', false)">Abbrechen</x-ui-button>
-                        <x-ui-button variant="primary" wire:click="saveSlotSettings">Speichern</x-ui-button>
+                    <div class="flex items-center gap-3">
+                        <x-ui-button variant="secondary-outline" size="sm" wire:click="$set('showSlotSettings', false)">Abbrechen</x-ui-button>
+                        <x-ui-button variant="primary" size="sm" wire:click="saveSlotSettings">
+                            <span class="inline-flex items-center gap-2">
+                                @svg('heroicon-o-check', 'w-4 h-4')
+                                Speichern
+                            </span>
+                        </x-ui-button>
                     </div>
                 </div>
             </x-slot>

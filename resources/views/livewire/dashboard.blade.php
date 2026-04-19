@@ -297,7 +297,21 @@
 
     {{-- Error Tracking Modal --}}
     @if($showErrorTracking)
-        <x-ui-modal wire:model="showErrorTracking" title="Error Tracking">
+        <x-ui-modal wire:model="showErrorTracking" size="md" :backdropClosable="true" :escClosable="true">
+            <x-slot name="header">
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-[var(--ui-danger)]/10 rounded-lg flex items-center justify-center">
+                            @svg('heroicon-o-bug-ant', 'w-5 h-5 text-[var(--ui-danger)]')
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-[var(--ui-secondary)]">Error Tracking</h3>
+                        <p class="text-sm text-[var(--ui-muted)]">Fehler-Erfassung konfigurieren</p>
+                    </div>
+                </div>
+            </x-slot>
+
             <div class="space-y-6">
                 {{-- Status --}}
                 <div class="d-flex items-center gap-3 p-3 rounded-lg {{ $errorEndpointConfigured ? 'bg-[var(--ui-success)]/10 border border-[var(--ui-success)]/30' : 'bg-[var(--ui-warning)]/10 border border-[var(--ui-warning)]/30' }}">
@@ -355,15 +369,31 @@
                 </div>
             </div>
             <x-slot name="footer">
-                <x-ui-button variant="secondary-outline" wire:click="$set('showErrorTracking', false)">Schliessen</x-ui-button>
+                <div class="flex justify-end">
+                    <x-ui-button variant="secondary-outline" size="sm" wire:click="$set('showErrorTracking', false)">Schliessen</x-ui-button>
+                </div>
             </x-slot>
         </x-ui-modal>
     @endif
 
     {{-- Activate Modal --}}
     @if($showActivateModal)
-        <x-ui-modal wire:model="showActivateModal" title="Package aktivieren">
-            <div class="space-y-4">
+        <x-ui-modal wire:model="showActivateModal" size="md" :backdropClosable="true" :escClosable="true">
+            <x-slot name="header">
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-[var(--ui-primary-10)] rounded-lg flex items-center justify-center">
+                            @svg('heroicon-o-cube', 'w-5 h-5 text-[var(--ui-primary)]')
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-[var(--ui-secondary)]">Package aktivieren</h3>
+                        <p class="text-sm text-[var(--ui-muted)]">Neues Package aus GitHub-Repo erstellen</p>
+                    </div>
+                </div>
+            </x-slot>
+
+            <div class="space-y-6">
                 @if($availableRepos->isNotEmpty())
                     <x-ui-input-select
                         name="selectedRepoId"
@@ -381,9 +411,17 @@
                 <x-ui-input-text wire:model="activatePackageName" label="Name" placeholder="z.B. Platform Sheets" required />
                 <x-ui-input-textarea wire:model="activatePackageDescription" label="Beschreibung" placeholder="Optional" />
             </div>
+
             <x-slot name="footer">
-                <x-ui-button variant="secondary-outline" wire:click="$set('showActivateModal', false)">Abbrechen</x-ui-button>
-                <x-ui-button variant="primary" wire:click="activatePackage">Aktivieren</x-ui-button>
+                <div class="flex justify-end gap-3">
+                    <x-ui-button variant="secondary-outline" size="sm" wire:click="$set('showActivateModal', false)">Abbrechen</x-ui-button>
+                    <x-ui-button variant="primary" size="sm" wire:click="activatePackage">
+                        <span class="inline-flex items-center gap-2">
+                            @svg('heroicon-o-check', 'w-4 h-4')
+                            Aktivieren
+                        </span>
+                    </x-ui-button>
+                </div>
             </x-slot>
         </x-ui-modal>
     @endif
