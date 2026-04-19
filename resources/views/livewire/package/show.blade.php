@@ -523,60 +523,75 @@
         @endif
         {{-- Documentation --}}
         @if($docPages->isNotEmpty())
-            <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden mt-6">
-                <div class="p-4 border-b border-[var(--ui-border)]/60 d-flex items-center justify-between">
-                    <div class="d-flex items-center gap-2">
-                        @svg('heroicon-o-document-text', 'w-4 h-4 text-[var(--ui-primary)]')
-                        <h3 class="text-sm font-semibold text-[var(--ui-secondary)]">Dokumentation</h3>
-                        <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $docPages->count() }}</span>
+            <div class="mt-6">
+                {{-- Section Header with Progress --}}
+                <div class="d-flex items-center justify-between mb-4">
+                    <div class="d-flex items-center gap-2.5">
+                        @svg('heroicon-o-book-open', 'w-5 h-5 text-[var(--ui-primary)]')
+                        <h3 class="text-sm font-semibold text-[var(--ui-secondary)] uppercase tracking-wider">Dokumentation</h3>
+                        <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $docPublishedCount }}/{{ $docPages->count() }}</span>
+                    </div>
+                    @php $docProgress = $docPages->count() > 0 ? round($docPublishedCount / $docPages->count() * 100) : 0; @endphp
+                    <div class="d-flex items-center gap-3">
+                        <div class="w-24 h-1.5 rounded-full bg-[var(--ui-border)]/40 overflow-hidden">
+                            <div class="h-full rounded-full bg-gradient-to-r from-[var(--ui-primary)] to-[var(--ui-success)] transition-all" style="width: {{ $docProgress }}%"></div>
+                        </div>
+                        <span class="text-xs font-semibold {{ $docProgress === 100 ? 'text-[var(--ui-success)]' : 'text-[var(--ui-muted)]' }}">{{ $docProgress }}%</span>
                     </div>
                 </div>
-                <div class="divide-y divide-[var(--ui-border)]/40">
+
+                {{-- Card Grid --}}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     @foreach($docPages as $docPage)
-                        <div class="d-flex items-center gap-3 p-3 hover:bg-[var(--ui-muted-5)] transition-colors">
-                            <div class="flex-shrink-0">
-                                @if($docPage->type->value === 'overview')
-                                    @svg('heroicon-o-home', 'w-4 h-4 text-[var(--ui-primary)]')
-                                @elseif($docPage->type->value === 'architecture')
-                                    @svg('heroicon-o-cube-transparent', 'w-4 h-4 text-[var(--ui-primary)]')
-                                @elseif($docPage->type->value === 'setup')
-                                    @svg('heroicon-o-cog-6-tooth', 'w-4 h-4 text-[var(--ui-primary)]')
-                                @elseif($docPage->type->value === 'api')
-                                    @svg('heroicon-o-code-bracket', 'w-4 h-4 text-[var(--ui-primary)]')
-                                @elseif($docPage->type->value === 'data_model')
-                                    @svg('heroicon-o-circle-stack', 'w-4 h-4 text-[var(--ui-primary)]')
-                                @elseif($docPage->type->value === 'testing')
-                                    @svg('heroicon-o-beaker', 'w-4 h-4 text-[var(--ui-primary)]')
-                                @elseif($docPage->type->value === 'deployment')
-                                    @svg('heroicon-o-rocket-launch', 'w-4 h-4 text-[var(--ui-primary)]')
-                                @elseif($docPage->type->value === 'changelog')
-                                    @svg('heroicon-o-clipboard-document-list', 'w-4 h-4 text-[var(--ui-primary)]')
-                                @elseif($docPage->type->value === 'contributing')
-                                    @svg('heroicon-o-user-group', 'w-4 h-4 text-[var(--ui-primary)]')
-                                @elseif($docPage->type->value === 'troubleshooting')
-                                    @svg('heroicon-o-wrench-screwdriver', 'w-4 h-4 text-[var(--ui-primary)]')
-                                @else
-                                    @svg('heroicon-o-document-text', 'w-4 h-4 text-[var(--ui-muted)]')
-                                @endif
-                            </div>
-                            <div class="min-w-0 flex-grow-1">
-                                <div class="d-flex items-center gap-2">
-                                    <span class="text-sm font-medium text-[var(--ui-secondary)]">{{ $docPage->title }}</span>
-                                    <x-ui-badge :variant="$docPage->status === 'published' ? 'success' : 'secondary'" size="xs">
-                                        {{ $docPage->status === 'published' ? 'Published' : 'Draft' }}
-                                    </x-ui-badge>
+                        @php
+                            $iconMap = [
+                                'overview' => 'heroicon-o-home',
+                                'architecture' => 'heroicon-o-cube-transparent',
+                                'setup' => 'heroicon-o-cog-6-tooth',
+                                'api' => 'heroicon-o-code-bracket',
+                                'data_model' => 'heroicon-o-circle-stack',
+                                'testing' => 'heroicon-o-beaker',
+                                'deployment' => 'heroicon-o-rocket-launch',
+                                'changelog' => 'heroicon-o-clipboard-document-list',
+                                'contributing' => 'heroicon-o-user-group',
+                                'troubleshooting' => 'heroicon-o-wrench-screwdriver',
+                                'custom' => 'heroicon-o-document-text',
+                            ];
+                            $icon = $iconMap[$docPage->type->value] ?? 'heroicon-o-document-text';
+                            $isPublished = $docPage->status === 'published';
+                            $hasContent = $docPage->content && trim($docPage->content) !== '' && trim($docPage->content) !== $docPage->type->defaultContent();
+                        @endphp
+                        <div class="group p-3 rounded-lg border transition-colors
+                            {{ $isPublished
+                                ? 'border-[var(--ui-success)]/30 bg-[var(--ui-success)]/[0.03] hover:bg-[var(--ui-success)]/[0.06]'
+                                : 'border-[var(--ui-border)]/60 bg-[var(--ui-surface)] hover:bg-[var(--ui-muted-5)]' }}">
+                            <div class="d-flex items-start gap-3">
+                                <div class="w-8 h-8 rounded-lg d-flex items-center justify-center flex-shrink-0
+                                    {{ $isPublished
+                                        ? 'bg-[var(--ui-success)]/10'
+                                        : 'bg-[var(--ui-muted-5)]' }}">
+                                    @svg($icon, 'w-4 h-4 ' . ($isPublished ? 'text-[var(--ui-success)]' : 'text-[var(--ui-muted)]'))
                                 </div>
-                                @if($docPage->excerpt)
-                                    <div class="text-xs text-[var(--ui-muted)] truncate mt-0.5">{{ $docPage->excerpt }}</div>
-                                @endif
-                            </div>
-                            <div class="flex-shrink-0 text-right">
-                                @if($docPage->updated_at)
-                                    <div class="text-xs text-[var(--ui-muted)]">{{ $docPage->updated_at->diffForHumans() }}</div>
-                                @endif
-                                @if($docPage->revisions_count > 0)
-                                    <div class="text-xs text-[var(--ui-muted)]">v{{ $docPage->revisions_count }}</div>
-                                @endif
+                                <div class="min-w-0 flex-grow-1">
+                                    <div class="d-flex items-center gap-1.5">
+                                        <span class="text-sm font-medium text-[var(--ui-secondary)] truncate">{{ $docPage->title }}</span>
+                                        @if($isPublished)
+                                            @svg('heroicon-s-check-circle', 'w-3.5 h-3.5 text-[var(--ui-success)] flex-shrink-0')
+                                        @endif
+                                    </div>
+                                    <div class="d-flex items-center gap-1.5 mt-1 text-xs text-[var(--ui-muted)]">
+                                        @if($docPage->revisions_count > 0)
+                                            <span class="font-mono px-1 py-px rounded bg-[var(--ui-muted-5)] text-[10px]">v{{ $docPage->revisions_count }}</span>
+                                        @endif
+                                        @if($docPage->lastEditedBy)
+                                            <span>{{ $docPage->lastEditedBy->name }}</span>
+                                            <span>&middot;</span>
+                                        @endif
+                                        @if($docPage->updated_at)
+                                            <span>{{ $docPage->updated_at->diffForHumans() }}</span>
+                                        @endif
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     @endforeach

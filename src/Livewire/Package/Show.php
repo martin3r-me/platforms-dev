@@ -328,10 +328,12 @@ class Show extends Component
 
         // Documentation pages
         $docPages = $this->package->docPages()
+            ->with('lastEditedBy:id,name')
             ->withCount('revisions')
             ->orderBy('position')
             ->orderBy('title')
             ->get();
+        $docPublishedCount = $docPages->where('status', 'published')->count();
 
         // Team members for user assignment
         $teamUsers = Auth::user()
@@ -358,6 +360,7 @@ class Show extends Component
             'recentDiscussions' => $recentDiscussions,
             'discussionCount' => $discussionCount,
             'docPages' => $docPages,
+            'docPublishedCount' => $docPublishedCount,
         ])->layout('platform::layouts.app');
     }
 }
