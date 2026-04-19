@@ -16,6 +16,8 @@ class DevPackageService
 
         $this->createDefaultBoards($package);
 
+        (new DevDocService())->initializeDocumentation($package, $package->created_by_user_id);
+
         return $package;
     }
 

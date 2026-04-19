@@ -157,6 +157,15 @@ class DevServiceProvider extends ServiceProvider
 
             // Error Tracking Debug
             $registry->register(new \Platform\Dev\Tools\ErrorTrackingDebugTool());
+
+            // Documentation
+            $registry->register(new \Platform\Dev\Tools\GetDocOverviewTool());
+            $registry->register(new \Platform\Dev\Tools\GetDocPageTool());
+            $registry->register(new \Platform\Dev\Tools\UpdateDocPageTool());
+            $registry->register(new \Platform\Dev\Tools\CreateDocPageTool());
+            $registry->register(new \Platform\Dev\Tools\DeleteDocPageTool());
+            $registry->register(new \Platform\Dev\Tools\ListDocRevisionsTool());
+            $registry->register(new \Platform\Dev\Tools\RestoreDocRevisionTool());
         } catch (\Throwable $e) {
             \Log::warning('Dev: Tool-Registrierung fehlgeschlagen', ['error' => $e->getMessage()]);
         }

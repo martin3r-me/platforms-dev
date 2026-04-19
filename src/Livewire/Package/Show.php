@@ -326,6 +326,13 @@ class Show extends Component
 
         $discussionCount = $this->package->discussions()->count();
 
+        // Documentation pages
+        $docPages = $this->package->docPages()
+            ->withCount('revisions')
+            ->orderBy('position')
+            ->orderBy('title')
+            ->get();
+
         // Team members for user assignment
         $teamUsers = Auth::user()
             ->currentTeam
@@ -350,6 +357,7 @@ class Show extends Component
             'errorSettingsEnabled' => $errorSettings?->enabled ?? false,
             'recentDiscussions' => $recentDiscussions,
             'discussionCount' => $discussionCount,
+            'docPages' => $docPages,
         ])->layout('platform::layouts.app');
     }
 }

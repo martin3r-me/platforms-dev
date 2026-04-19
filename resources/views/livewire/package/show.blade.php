@@ -521,6 +521,68 @@
                 </div>
             </div>
         @endif
+        {{-- Documentation --}}
+        @if($docPages->isNotEmpty())
+            <div class="bg-[var(--ui-surface)] rounded-xl border border-[var(--ui-border)]/60 overflow-hidden mt-6">
+                <div class="p-4 border-b border-[var(--ui-border)]/60 d-flex items-center justify-between">
+                    <div class="d-flex items-center gap-2">
+                        @svg('heroicon-o-document-text', 'w-4 h-4 text-[var(--ui-primary)]')
+                        <h3 class="text-sm font-semibold text-[var(--ui-secondary)]">Dokumentation</h3>
+                        <span class="text-xs px-1.5 py-0.5 rounded-full bg-[var(--ui-muted-5)] text-[var(--ui-muted)] font-medium">{{ $docPages->count() }}</span>
+                    </div>
+                </div>
+                <div class="divide-y divide-[var(--ui-border)]/40">
+                    @foreach($docPages as $docPage)
+                        <div class="d-flex items-center gap-3 p-3 hover:bg-[var(--ui-muted-5)] transition-colors">
+                            <div class="flex-shrink-0">
+                                @if($docPage->type->value === 'overview')
+                                    @svg('heroicon-o-home', 'w-4 h-4 text-[var(--ui-primary)]')
+                                @elseif($docPage->type->value === 'architecture')
+                                    @svg('heroicon-o-cube-transparent', 'w-4 h-4 text-[var(--ui-primary)]')
+                                @elseif($docPage->type->value === 'setup')
+                                    @svg('heroicon-o-cog-6-tooth', 'w-4 h-4 text-[var(--ui-primary)]')
+                                @elseif($docPage->type->value === 'api')
+                                    @svg('heroicon-o-code-bracket', 'w-4 h-4 text-[var(--ui-primary)]')
+                                @elseif($docPage->type->value === 'data_model')
+                                    @svg('heroicon-o-circle-stack', 'w-4 h-4 text-[var(--ui-primary)]')
+                                @elseif($docPage->type->value === 'testing')
+                                    @svg('heroicon-o-beaker', 'w-4 h-4 text-[var(--ui-primary)]')
+                                @elseif($docPage->type->value === 'deployment')
+                                    @svg('heroicon-o-rocket-launch', 'w-4 h-4 text-[var(--ui-primary)]')
+                                @elseif($docPage->type->value === 'changelog')
+                                    @svg('heroicon-o-clipboard-document-list', 'w-4 h-4 text-[var(--ui-primary)]')
+                                @elseif($docPage->type->value === 'contributing')
+                                    @svg('heroicon-o-user-group', 'w-4 h-4 text-[var(--ui-primary)]')
+                                @elseif($docPage->type->value === 'troubleshooting')
+                                    @svg('heroicon-o-wrench-screwdriver', 'w-4 h-4 text-[var(--ui-primary)]')
+                                @else
+                                    @svg('heroicon-o-document-text', 'w-4 h-4 text-[var(--ui-muted)]')
+                                @endif
+                            </div>
+                            <div class="min-w-0 flex-grow-1">
+                                <div class="d-flex items-center gap-2">
+                                    <span class="text-sm font-medium text-[var(--ui-secondary)]">{{ $docPage->title }}</span>
+                                    <x-ui-badge :variant="$docPage->status === 'published' ? 'success' : 'secondary'" size="xs">
+                                        {{ $docPage->status === 'published' ? 'Published' : 'Draft' }}
+                                    </x-ui-badge>
+                                </div>
+                                @if($docPage->excerpt)
+                                    <div class="text-xs text-[var(--ui-muted)] truncate mt-0.5">{{ $docPage->excerpt }}</div>
+                                @endif
+                            </div>
+                            <div class="flex-shrink-0 text-right">
+                                @if($docPage->updated_at)
+                                    <div class="text-xs text-[var(--ui-muted)]">{{ $docPage->updated_at->diffForHumans() }}</div>
+                                @endif
+                                @if($docPage->revisions_count > 0)
+                                    <div class="text-xs text-[var(--ui-muted)]">v{{ $docPage->revisions_count }}</div>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </x-ui-page-container>
 
     {{-- Create Board Modal --}}

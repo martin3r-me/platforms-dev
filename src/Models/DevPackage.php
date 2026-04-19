@@ -75,6 +75,11 @@ class DevPackage extends Model
         return $this->hasMany(DevDiscussion::class, 'dev_package_id')->orderByDesc('is_pinned')->orderByDesc('updated_at');
     }
 
+    public function docPages(): HasMany
+    {
+        return $this->hasMany(DevDocPage::class, 'dev_package_id')->orderBy('position');
+    }
+
     public function errorSettings(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(DevPackageErrorSettings::class, 'dev_package_id');
