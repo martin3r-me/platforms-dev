@@ -170,15 +170,16 @@ class Issue extends Component
 
     // --- Acceptance Criteria (DoD) ---
 
-    public function addCriterion(): void
+    public function addCriterion(?string $text = null): void
     {
-        if (trim($this->newCriterion) === '') {
+        $criterionText = trim($text ?? $this->newCriterion);
+        if ($criterionText === '') {
             return;
         }
 
         $criteria = $this->issue->acceptance_criteria ?? [];
         $criteria[] = [
-            'text' => trim($this->newCriterion),
+            'text' => $criterionText,
             'done' => false,
         ];
 
