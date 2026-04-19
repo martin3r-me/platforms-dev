@@ -24,6 +24,18 @@ class DevBoardService
         return $board->fresh();
     }
 
+    public function archiveBoard(DevBoard $board): DevBoard
+    {
+        $board->update(['status' => 'archived']);
+        return $board->fresh();
+    }
+
+    public function reactivateBoard(DevBoard $board): DevBoard
+    {
+        $board->update(['status' => 'active']);
+        return $board->fresh();
+    }
+
     public function reorderSlots(DevBoard $board, array $slotIds): void
     {
         foreach ($slotIds as $position => $slotId) {

@@ -24,6 +24,7 @@ class DevBoard extends Model
         'type',
         'description',
         'order',
+        'status',
     ];
 
     protected $casts = [
@@ -40,6 +41,16 @@ class DevBoard extends Model
                 $model->uuid = $uuid;
             }
         });
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
+    }
+
+    public function scopeArchived($query)
+    {
+        return $query->where('status', 'archived');
     }
 
     public function package(): BelongsTo

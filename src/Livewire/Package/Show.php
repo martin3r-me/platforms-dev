@@ -4,11 +4,13 @@ namespace Platform\Dev\Livewire\Package;
 
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
+use Platform\Dev\Models\DevBoard;
 use Platform\Dev\Models\DevPackage;
 use Platform\Dev\Models\DevPackageErrorSettings;
 use Platform\Dev\Models\DevErrorOccurrence;
 use Platform\Dev\Models\DevDiscussion;
 use Platform\Dev\Models\DevIssue;
+use Platform\Dev\Services\DevBoardService;
 use Platform\Integrations\Models\IntegrationGithubCommit;
 use Platform\Integrations\Models\IntegrationGithubPullRequest;
 use Platform\Integrations\Models\IntegrationGithubRepo;
@@ -67,6 +69,70 @@ class Show extends Component
     public function cancelEditPackage(): void
     {
         $this->editingPackage = false;
+    }
+
+    // --- Board Management ---
+
+    public bool $showCreateBoardModal = false;
+    public string $newBoardName = '';
+    public string $newBoardType = 'custom';
+    public string $newBoardDescription = '';
+
+    public function createBoard(): void
+    {
+        $name = trim($this->newBoardName);
+        if ($name === '') {
+            return;
+        }
+
+        $user = Auth::user();
+        $team = $user->currentTeam;
+
+        $boardService = new DevBoardService();
+        $board = $boardService->createBoard([
+            'name' => $name,
+            'type' => $this->newBoardType,
+            'description' => trim($this->newBoardDescription) ?: null,
+            'dev_package_id' => $this->package->id,
+            'team_id' => $team->id,
+            'created_by_user_id' => $user->id,
+            'order' => $this->package->boards()->count(),
+        ]);
+
+        $this->showCreateBoardModal = false;
+        $this->newBoardName = '';
+        $this->newBoardType = 'custom';
+        $this->newBoardDescription = '';
+
+        $this->dispatch('updateSidebar');
+
+        $this->redirect(route('dev.packages.boards.show', [$this->package, $board]), navigate: true);
+    }
+
+    public function archiveBoard(int $boardId): void
+    {
+        $board = DevBoard::where('dev_package_id', $this->package->id)->find($boardId);
+        if (!$board) {
+            return;
+        }
+
+        $boardService = new DevBoardService();
+        $boardService->archiveBoard($board);
+
+        $this->dispatch('updateSidebar');
+    }
+
+    public function reactivateBoard(int $boardId): void
+    {
+        $board = DevBoard::where('dev_package_id', $this->package->id)->find($boardId);
+        if (!$board) {
+            return;
+        }
+
+        $boardService = new DevBoardService();
+        $boardService->reactivateBoard($board);
+
+        $this->dispatch('updateSidebar');
     }
 
     // --- Error Tracking Settings ---
@@ -182,6 +248,13 @@ class Show extends Component
     public function render()
     {
         $boards = $this->package->boards()
+            ->active()
+            ->withCount(['issues as open_issues_count' => fn ($q) => $q->where('status', 'open')])
+            ->orderBy('order')
+            ->get();
+
+        $archivedBoards = $this->package->boards()
+            ->archived()
             ->withCount(['issues as open_issues_count' => fn ($q) => $q->where('status', 'open')])
             ->orderBy('order')
             ->get();
@@ -265,6 +338,7 @@ class Show extends Component
 
         return view('dev::livewire.package.show', [
             'boards' => $boards,
+            'archivedBoards' => $archivedBoards,
             'totalOpen' => $totalOpen,
             'totalDone' => $totalDone,
             'totalOverdue' => $totalOverdue,

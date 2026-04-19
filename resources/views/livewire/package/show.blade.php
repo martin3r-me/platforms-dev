@@ -24,6 +24,10 @@
                         </x-ui-button>
                     </a>
                 @endforeach
+                <x-ui-button variant="ghost" size="sm" wire:click="$set('showCreateBoardModal', true)">
+                    @svg('heroicon-o-plus', 'w-4 h-4')
+                    <span>Board</span>
+                </x-ui-button>
             </x-slot>
             @if(!$editingPackage)
                 <x-ui-button variant="secondary-outline" size="sm" wire:click="openErrorSettings">
@@ -96,6 +100,29 @@
                         @endforeach
                     </div>
                 </div>
+
+                {{-- Archived Boards --}}
+                @if($archivedBoards->isNotEmpty())
+                    <div>
+                        <h3 class="text-sm font-bold text-[var(--ui-muted)] uppercase tracking-wider mb-3">
+                            Archiviert
+                            <x-ui-badge variant="muted" size="xs" class="ml-1">{{ $archivedBoards->count() }}</x-ui-badge>
+                        </h3>
+                        <div class="space-y-1.5">
+                            @foreach($archivedBoards as $archivedBoard)
+                                <div class="d-flex items-center gap-2.5 py-2 px-3 rounded-lg bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/40">
+                                    @svg('heroicon-o-archive-box', 'w-4 h-4 text-[var(--ui-muted)] flex-shrink-0')
+                                    <span class="text-sm text-[var(--ui-muted)] flex-grow-1 truncate">{{ $archivedBoard->name }}</span>
+                                    <button wire:click="reactivateBoard({{ $archivedBoard->id }})"
+                                            class="p-1 rounded text-[var(--ui-muted)] hover:text-[var(--ui-primary)] hover:bg-[var(--ui-primary-5)] transition-colors"
+                                            title="Reaktivieren">
+                                        @svg('heroicon-o-arrow-path', 'w-4 h-4')
+                                    </button>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
 
                 {{-- Package Info --}}
                 <div>
@@ -478,6 +505,56 @@
             </div>
         @endif
     </x-ui-page-container>
+
+    {{-- Create Board Modal --}}
+    @if($showCreateBoardModal)
+        <x-ui-modal wire:model="showCreateBoardModal" size="lg">
+            <x-slot name="header">
+                Neues Board erstellen
+            </x-slot>
+
+            <div class="space-y-4">
+                <x-ui-input-text
+                    name="newBoardName"
+                    wire:model.live="newBoardName"
+                    label="Name"
+                    required
+                    placeholder="z.B. Sprint 3, Auth Refactoring..."
+                />
+                <x-ui-input-select
+                    name="newBoardType"
+                    wire:model.live="newBoardType"
+                    label="Typ"
+                    :options="[
+                        ['value' => 'feature', 'label' => 'Features'],
+                        ['value' => 'bug', 'label' => 'Bugs'],
+                        ['value' => 'custom', 'label' => 'Custom'],
+                    ]"
+                    optionValue="value"
+                    optionLabel="label"
+                />
+                <x-ui-input-textarea
+                    name="newBoardDescription"
+                    wire:model.live="newBoardDescription"
+                    label="Beschreibung"
+                    rows="3"
+                    placeholder="Optionale Beschreibung..."
+                />
+            </div>
+
+            <x-slot name="footer">
+                <div class="d-flex justify-end gap-2">
+                    <x-ui-button variant="secondary-outline" wire:click="$set('showCreateBoardModal', false)">
+                        Abbrechen
+                    </x-ui-button>
+                    <x-ui-button variant="primary" wire:click="createBoard">
+                        @svg('heroicon-o-plus', 'w-4 h-4 mr-2')
+                        Erstellen
+                    </x-ui-button>
+                </div>
+            </x-slot>
+        </x-ui-modal>
+    @endif
 
     {{-- Error Tracking Settings Modal --}}
     @if($showErrorSettings && $errorSettings)

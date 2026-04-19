@@ -11,19 +11,19 @@ use Platform\Dev\Models\DevBoard;
 use Platform\Dev\Services\DevBoardService;
 use Platform\Dev\Tools\Concerns\ResolvesDevTeam;
 
-class UpdateBoardTool implements ToolContract, ToolMetadataContract
+class ArchiveBoardTool implements ToolContract, ToolMetadataContract
 {
     use HasStandardizedWriteOperations;
     use ResolvesDevTeam;
 
     public function getName(): string
     {
-        return 'dev.boards.PUT';
+        return 'dev.boards.archive';
     }
 
     public function getDescription(): string
     {
-        return 'PUT /dev/boards - Aktualisiert ein Board. ERFORDERLICH: board_id. Optional: name, description, status (active/archived).';
+        return 'POST /dev/boards/archive - Archiviert ein Board oder reaktiviert es. ERFORDERLICH: board_id. Optional: reactivate (boolean, default: false).';
     }
 
     public function getSchema(): array
@@ -38,18 +38,9 @@ class UpdateBoardTool implements ToolContract, ToolMetadataContract
                     'type' => 'integer',
                     'description' => 'ID des Boards (ERFORDERLICH).',
                 ],
-                'name' => [
-                    'type' => 'string',
-                    'description' => 'Optional: Neuer Name.',
-                ],
-                'description' => [
-                    'type' => 'string',
-                    'description' => 'Optional: Neue Beschreibung.',
-                ],
-                'status' => [
-                    'type' => 'string',
-                    'enum' => ['active', 'archived'],
-                    'description' => 'Optional: Board-Status (active/archived).',
+                'reactivate' => [
+                    'type' => 'boolean',
+                    'description' => 'Optional: true = reaktivieren statt archivieren. Default: false.',
                 ],
             ],
             'required' => ['board_id'],
@@ -78,45 +69,29 @@ class UpdateBoardTool implements ToolContract, ToolMetadataContract
                 return ToolResult::error('NOT_FOUND', 'Board nicht gefunden (oder kein Zugriff).');
             }
 
-            $payload = [];
-            if (array_key_exists('name', $arguments) && $arguments['name'] !== null) {
-                $name = trim((string) $arguments['name']);
-                if ($name === '') {
-                    return ToolResult::error('VALIDATION_ERROR', 'Name darf nicht leer sein.');
-                }
-                $payload['name'] = $name;
-            }
-            if (array_key_exists('description', $arguments)) {
-                $payload['description'] = $arguments['description'];
-            }
-            if (array_key_exists('status', $arguments) && $arguments['status'] !== null) {
-                $status = $arguments['status'];
-                if (!in_array($status, ['active', 'archived'], true)) {
-                    return ToolResult::error('VALIDATION_ERROR', 'Status muss "active" oder "archived" sein.');
-                }
-                $payload['status'] = $status;
-            }
-
-            if (empty($payload)) {
-                return ToolResult::error('NO_CHANGE', 'Keine Aenderungen uebergeben.');
-            }
-
             $boardService = new DevBoardService();
-            $board = $boardService->updateBoard($board, $payload);
+            $reactivate = (bool) ($arguments['reactivate'] ?? false);
+
+            if ($reactivate) {
+                $board = $boardService->reactivateBoard($board);
+                $action = 'reaktiviert';
+            } else {
+                $board = $boardService->archiveBoard($board);
+                $action = 'archiviert';
+            }
 
             return ToolResult::success([
                 'id' => $board->id,
                 'uuid' => $board->uuid,
                 'name' => $board->name,
                 'type' => $board->type instanceof \BackedEnum ? $board->type->value : $board->type,
-                'description' => $board->description,
                 'status' => $board->status,
                 'dev_package_id' => $board->dev_package_id,
                 'team_id' => $board->team_id,
-                'message' => "Board '{$board->name}' erfolgreich aktualisiert.",
+                'message' => "Board '{$board->name}' erfolgreich {$action}.",
             ]);
         } catch (\Throwable $e) {
-            return ToolResult::error('EXECUTION_ERROR', 'Fehler beim Aktualisieren des Boards: ' . $e->getMessage());
+            return ToolResult::error('EXECUTION_ERROR', 'Fehler beim Archivieren/Reaktivieren des Boards: ' . $e->getMessage());
         }
     }
 
@@ -125,7 +100,7 @@ class UpdateBoardTool implements ToolContract, ToolMetadataContract
         return [
             'read_only' => false,
             'category' => 'action',
-            'tags' => ['dev', 'boards', 'update'],
+            'tags' => ['dev', 'boards', 'archive'],
             'risk_level' => 'write',
             'requires_auth' => true,
             'requires_team' => true,

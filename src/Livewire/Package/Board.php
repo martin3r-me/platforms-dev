@@ -8,6 +8,7 @@ use Platform\Dev\Models\DevPackage;
 use Platform\Dev\Models\DevBoard;
 use Platform\Dev\Models\DevBoardSlot;
 use Platform\Dev\Models\DevIssue;
+use Platform\Dev\Services\DevBoardService;
 use Platform\Dev\Services\DevIssueService;
 
 class Board extends Component
@@ -21,6 +22,11 @@ class Board extends Component
     public ?int $editingSlotId = null;
     public string $editSlotName = '';
     public bool $showSlotSettings = false;
+
+    // Board settings
+    public bool $showBoardSettings = false;
+    public string $editBoardName = '';
+    public string $editBoardDescription = '';
 
     public function mount(DevPackage $package, DevBoard $board): void
     {
@@ -263,6 +269,41 @@ class Board extends Component
         $this->loadGroups();
     }
 
+    public function openBoardSettings(): void
+    {
+        $this->editBoardName = $this->board->name;
+        $this->editBoardDescription = $this->board->description ?? '';
+        $this->showBoardSettings = true;
+    }
+
+    public function saveBoardSettings(): void
+    {
+        $name = trim($this->editBoardName);
+        if ($name === '') {
+            return;
+        }
+
+        $boardService = new DevBoardService();
+        $boardService->updateBoard($this->board, [
+            'name' => $name,
+            'description' => trim($this->editBoardDescription) ?: null,
+        ]);
+
+        $this->board->refresh();
+        $this->showBoardSettings = false;
+        $this->dispatch('updateSidebar');
+    }
+
+    public function archiveBoard(): void
+    {
+        $boardService = new DevBoardService();
+        $boardService->archiveBoard($this->board);
+
+        $this->dispatch('updateSidebar');
+
+        $this->redirect(route('dev.packages.show', $this->package), navigate: true);
+    }
+
     public function render()
     {
         $openCount = $this->groups
@@ -274,6 +315,7 @@ class Board extends Component
             ->sum(fn ($g) => $g->tasks->count());
 
         $allBoards = $this->package->boards()
+            ->active()
             ->withCount(['issues as open_issues_count' => fn ($q) => $q->where('status', 'open')])
             ->orderBy('order')
             ->get();

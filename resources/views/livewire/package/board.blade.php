@@ -26,6 +26,17 @@
                     </a>
                 @endforeach
             </x-slot>
+            <x-ui-button variant="ghost" size="sm" wire:click="openBoardSettings">
+                @svg('heroicon-o-cog-6-tooth', 'w-4 h-4')
+            </x-ui-button>
+            <x-ui-confirm-button
+                variant="danger-outline"
+                size="sm"
+                wire:click="archiveBoard"
+                confirm-text="Board wirklich archivieren? Issues bleiben erhalten."
+            >
+                @svg('heroicon-o-archive-box', 'w-4 h-4')
+            </x-ui-confirm-button>
             <x-ui-button variant="ghost" size="sm" wire:click="createBoardSlot">
                 @svg('heroicon-o-square-2-stack', 'w-4 h-4')
                 <span>Spalte</span>
@@ -153,6 +164,42 @@
 			@endif
 		@endif
     </x-ui-kanban-container>
+
+    {{-- Board Settings Modal --}}
+    @if($showBoardSettings)
+        <x-ui-modal wire:model="showBoardSettings" size="lg">
+            <x-slot name="header">
+                Board bearbeiten
+            </x-slot>
+
+            <div class="space-y-4">
+                <x-ui-input-text
+                    name="editBoardName"
+                    wire:model.live="editBoardName"
+                    label="Name"
+                    required
+                />
+                <x-ui-input-textarea
+                    name="editBoardDescription"
+                    wire:model.live="editBoardDescription"
+                    label="Beschreibung"
+                    rows="3"
+                />
+            </div>
+
+            <x-slot name="footer">
+                <div class="d-flex justify-end gap-2">
+                    <x-ui-button variant="secondary-outline" wire:click="$set('showBoardSettings', false)">
+                        Abbrechen
+                    </x-ui-button>
+                    <x-ui-button variant="primary" wire:click="saveBoardSettings">
+                        @svg('heroicon-o-check', 'w-4 h-4 mr-2')
+                        Speichern
+                    </x-ui-button>
+                </div>
+            </x-slot>
+        </x-ui-modal>
+    @endif
 
     {{-- Slot Settings Modal --}}
     @if($showSlotSettings)

@@ -139,6 +139,7 @@ class DevServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Dev\Tools\CreateBoardTool());
             $registry->register(new \Platform\Dev\Tools\UpdateBoardTool());
             $registry->register(new \Platform\Dev\Tools\DeleteBoardTool());
+            $registry->register(new \Platform\Dev\Tools\ArchiveBoardTool());
 
             // Issue CRUD
             $registry->register(new \Platform\Dev\Tools\ListIssuesTool());
