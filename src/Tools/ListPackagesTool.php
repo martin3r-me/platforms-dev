@@ -60,9 +60,10 @@ class ListPackagesTool implements ToolContract, ToolMetadataContract
             $this->applyStandardSearch($query, $arguments, ['name', 'description', 'github_repo_full_name']);
             $this->applyStandardSort($query, $arguments, ['name', 'status', 'order', 'created_at', 'updated_at'], 'order', 'asc');
 
+            $query->withCount(['boards', 'discussions']);
             $result = $this->applyStandardPaginationResult($query, $arguments);
 
-            $packages = $result['query']->withCount(['boards', 'discussions'])->get()->map(fn ($p) => [
+            $packages = $result['data']->map(fn ($p) => [
                 'id' => $p->id,
                 'uuid' => $p->uuid,
                 'name' => $p->name,

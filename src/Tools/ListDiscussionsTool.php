@@ -75,9 +75,10 @@ class ListDiscussionsTool implements ToolContract, ToolMetadataContract
                 $query->orderBy('updated_at', 'desc');
             }
 
+            $query->withCount('replies')->with('createdBy');
             $result = $this->applyStandardPaginationResult($query, $arguments);
 
-            $discussions = $result['query']->withCount('replies')->with('createdBy')->get()->map(fn ($d) => [
+            $discussions = $result['data']->map(fn ($d) => [
                 'id' => $d->id,
                 'uuid' => $d->uuid,
                 'title' => $d->title,

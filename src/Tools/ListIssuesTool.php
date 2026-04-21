@@ -99,7 +99,7 @@ class ListIssuesTool implements ToolContract, ToolMetadataContract
 
             $result = $this->applyStandardPaginationResult($query, $arguments);
 
-            $issues = $result['query']->get()->map(fn ($issue) => [
+            $issues = $result['data']->map(fn ($issue) => [
                 'id' => $issue->id,
                 'uuid' => $issue->uuid,
                 'title' => $issue->title,
