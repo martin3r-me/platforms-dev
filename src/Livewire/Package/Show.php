@@ -8,9 +8,9 @@ use Platform\Dev\Models\DevBoard;
 use Platform\Dev\Models\DevPackage;
 use Platform\Dev\Models\DevPackageErrorSettings;
 use Platform\Dev\Models\DevErrorOccurrence;
-use Platform\Dev\Models\DevDiscussion;
 use Platform\Dev\Models\DevIssue;
 use Platform\Dev\Services\DevBoardService;
+use Platform\Dev\Services\DevDocService;
 use Platform\Integrations\Models\IntegrationGithubCommit;
 use Platform\Integrations\Models\IntegrationGithubPullRequest;
 use Platform\Integrations\Models\IntegrationGithubRepo;
@@ -199,6 +199,12 @@ class Show extends Component
         }
     }
 
+    public function initializeDocs(): void
+    {
+        $docService = new DevDocService();
+        $docService->initializeDocumentation($this->package, Auth::id());
+    }
+
     public function rendered(): void
     {
         // Comms - Communication/Channel Integration
@@ -316,16 +322,6 @@ class Show extends Component
 
         $errorSettings = $this->package->errorSettings;
 
-        // Recent discussions
-        $recentDiscussions = $this->package->discussions()
-            ->withCount('replies')
-            ->with('createdBy')
-            ->orderByDesc('created_at')
-            ->limit(3)
-            ->get();
-
-        $discussionCount = $this->package->discussions()->count();
-
         // Documentation pages
         $docPages = $this->package->docPages()
             ->with('lastEditedBy:id,name')
@@ -357,8 +353,6 @@ class Show extends Component
             'teamUsers' => $teamUsers,
             'errorOccurrences' => $errorOccurrences,
             'errorSettingsEnabled' => $errorSettings?->enabled ?? false,
-            'recentDiscussions' => $recentDiscussions,
-            'discussionCount' => $discussionCount,
             'docPages' => $docPages,
             'docPublishedCount' => $docPublishedCount,
         ])->layout('platform::layouts.app');

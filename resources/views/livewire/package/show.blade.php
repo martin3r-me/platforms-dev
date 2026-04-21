@@ -474,7 +474,7 @@
                 </div>
             </div>
 
-            {{-- Issues + Discussions + Recently Closed --}}
+            {{-- Issues + Recently Closed --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {{-- Open Issues --}}
                 <div class="bg-white rounded-md border border-gray-200 overflow-hidden">
@@ -489,7 +489,7 @@
                         @forelse($recentIssues as $issue)
                             <a href="{{ route('dev.packages.issues.show', [$package, $issue]) }}"
                                wire:navigate
-                               class="d-flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0">
+                               class="d-flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0">
                                 <div class="flex-shrink-0">
                                     @if($issue->priority === 'high')
                                         <span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
@@ -499,7 +499,7 @@
                                 </div>
                                 <div class="min-w-0 flex-grow-1">
                                     <div class="text-xs font-medium text-gray-900 truncate hover:text-blue-600">{{ $issue->title }}</div>
-                                    <div class="text-[11px] text-gray-500">
+                                    <div class="text-[11px] text-gray-500 mt-0.5">
                                         {{ $issue->board->name }}
                                         @if($issue->userInCharge)
                                             &middot; {{ $issue->userInCharge->name }}
@@ -532,13 +532,13 @@
                         @forelse($recentlyDone as $issue)
                             <a href="{{ route('dev.packages.issues.show', [$package, $issue]) }}"
                                wire:navigate
-                               class="d-flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0">
+                               class="d-flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0">
                                 <div class="flex-shrink-0">
                                     <svg class="w-4 h-4 text-purple-500" viewBox="0 0 16 16" fill="currentColor"><path d="M11.28 6.78a.75.75 0 0 0-1.06-1.06L7.25 8.69 5.78 7.22a.75.75 0 0 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0l3.5-3.5Z"/><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0Zm-1.5 0a6.5 6.5 0 1 0-13 0 6.5 6.5 0 0 0 13 0Z"/></svg>
                                 </div>
                                 <div class="min-w-0 flex-grow-1">
                                     <div class="text-xs text-gray-400 line-through truncate">{{ $issue->title }}</div>
-                                    <div class="text-[11px] text-gray-500">
+                                    <div class="text-[11px] text-gray-500 mt-0.5">
                                         {{ $issue->board->name }}
                                         @if($issue->done_at)
                                             &middot; {{ $issue->done_at->diffForHumans() }}
@@ -556,14 +556,16 @@
             </div>
 
             {{-- Documentation --}}
-            @if($docPages->isNotEmpty())
-                <div class="mb-6">
-                    <div class="d-flex items-center justify-between mb-4">
-                        <div class="d-flex items-center gap-2">
-                            @svg('heroicon-o-book-open', 'w-4 h-4 text-gray-500')
-                            <h2 class="text-sm font-semibold text-gray-900">Documentation</h2>
+            <div class="mb-6">
+                <div class="d-flex items-center justify-between mb-4">
+                    <div class="d-flex items-center gap-2">
+                        @svg('heroicon-o-book-open', 'w-4 h-4 text-gray-500')
+                        <h2 class="text-sm font-semibold text-gray-900">Documentation</h2>
+                        @if($docPages->isNotEmpty())
                             <span class="px-2 py-0.5 text-[11px] font-medium rounded-full bg-neutral-200/80 text-gray-600 tabular-nums">{{ $docPublishedCount }}/{{ $docPages->count() }}</span>
-                        </div>
+                        @endif
+                    </div>
+                    @if($docPages->isNotEmpty())
                         @php $docProgress = $docPages->count() > 0 ? round($docPublishedCount / $docPages->count() * 100) : 0; @endphp
                         <div class="d-flex items-center gap-3">
                             <div class="w-24 h-[6px] rounded-full bg-gray-200 overflow-hidden">
@@ -571,8 +573,10 @@
                             </div>
                             <span class="text-[11px] font-semibold tabular-nums {{ $docProgress === 100 ? 'text-[#238636]' : 'text-gray-500' }}">{{ $docProgress }}%</span>
                         </div>
-                    </div>
+                    @endif
+                </div>
 
+                @if($docPages->isNotEmpty())
                     <div class="bg-white rounded-md border border-gray-200 overflow-hidden">
                         @foreach($docPages as $docPage)
                             @php
@@ -622,8 +626,19 @@
                             </a>
                         @endforeach
                     </div>
-                </div>
-            @endif
+                @else
+                    <div class="bg-white rounded-md border border-gray-200 p-10 text-center">
+                        @svg('heroicon-o-book-open', 'w-8 h-8 text-gray-300 mx-auto mb-3')
+                        <p class="text-xs font-medium text-gray-900 mb-1">No documentation yet</p>
+                        <p class="text-[11px] text-gray-500 mb-4">Initialize the standard documentation pages for this package.</p>
+                        <button wire:click="initializeDocs"
+                                class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium text-white bg-[#238636] hover:bg-[#2ea043] rounded-md border border-[#2ea043] transition-colors">
+                            @svg('heroicon-o-plus', 'w-3.5 h-3.5')
+                            Initialize Documentation
+                        </button>
+                    </div>
+                @endif
+            </div>
 
         </div>
     </x-ui-page-container>
