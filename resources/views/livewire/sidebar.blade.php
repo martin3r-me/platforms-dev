@@ -28,8 +28,13 @@
                         <x-ui-sidebar-item :href="route('dev.packages.show', $package)" class="flex-grow-1">
                             <svg class="w-4 h-4 text-gray-400 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.25.25 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z"/></svg>
                             <span class="ml-2 text-xs text-gray-700 truncate flex-grow-1">{{ $package->name }}</span>
+                            @if(($package->open_features_count ?? 0) > 0)
+                                <span class="inline-flex items-center justify-center min-w-[18px] h-[16px] px-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium flex-shrink-0 leading-none tabular-nums">
+                                    {{ $package->open_features_count }}
+                                </span>
+                            @endif
                             @if(($package->open_bugs_count ?? 0) > 0)
-                                <span class="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full bg-neutral-200/80 text-gray-700 text-[11px] font-medium flex-shrink-0 leading-none tabular-nums">
+                                <span class="inline-flex items-center justify-center min-w-[18px] h-[16px] px-1 rounded-full bg-red-100 text-red-700 text-[10px] font-medium flex-shrink-0 leading-none tabular-nums">
                                     {{ $package->open_bugs_count }}
                                 </span>
                             @endif

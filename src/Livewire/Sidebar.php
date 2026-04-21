@@ -37,19 +37,31 @@ class Sidebar extends Component
                 ->get()
             : collect();
 
-        // Eager-load open bugs count per package
+        // Eager-load open bugs + feature counts per package
         if ($activePackages->isNotEmpty()) {
+            $packageIds = $activePackages->pluck('id');
+
             $bugCounts = DevIssue::query()
                 ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
                 ->where('dev_boards.type', 'bug')
                 ->where('dev_issues.status', 'open')
-                ->whereIn('dev_boards.dev_package_id', $activePackages->pluck('id'))
+                ->whereIn('dev_boards.dev_package_id', $packageIds)
                 ->selectRaw('dev_boards.dev_package_id, COUNT(*) as count')
                 ->groupBy('dev_boards.dev_package_id')
                 ->pluck('count', 'dev_package_id');
 
-            $activePackages->each(function ($package) use ($bugCounts) {
+            $featureCounts = DevIssue::query()
+                ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
+                ->where('dev_boards.type', 'feature')
+                ->where('dev_issues.status', 'open')
+                ->whereIn('dev_boards.dev_package_id', $packageIds)
+                ->selectRaw('dev_boards.dev_package_id, COUNT(*) as count')
+                ->groupBy('dev_boards.dev_package_id')
+                ->pluck('count', 'dev_package_id');
+
+            $activePackages->each(function ($package) use ($bugCounts, $featureCounts) {
                 $package->open_bugs_count = $bugCounts[$package->id] ?? 0;
+                $package->open_features_count = $featureCounts[$package->id] ?? 0;
             });
         }
 
