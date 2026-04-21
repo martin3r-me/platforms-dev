@@ -58,7 +58,7 @@
                         @endforeach
 
                         {{-- Documentation --}}
-                        <a href="{{ route('dev.packages.show', $package) }}"
+                        <a href="{{ route('dev.packages.docs', $package) }}"
                            wire:navigate
                            class="flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors">
                             @svg('heroicon-o-book-open', 'w-3 h-3 text-gray-400 flex-shrink-0')

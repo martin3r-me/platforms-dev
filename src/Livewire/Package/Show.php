@@ -10,7 +10,6 @@ use Platform\Dev\Models\DevPackageErrorSettings;
 use Platform\Dev\Models\DevErrorOccurrence;
 use Platform\Dev\Models\DevIssue;
 use Platform\Dev\Services\DevBoardService;
-use Platform\Dev\Services\DevDocService;
 use Platform\Integrations\Models\IntegrationGithubCommit;
 use Platform\Integrations\Models\IntegrationGithubPullRequest;
 use Platform\Integrations\Models\IntegrationGithubRepo;
@@ -199,12 +198,6 @@ class Show extends Component
         }
     }
 
-    public function initializeDocs(): void
-    {
-        $docService = new DevDocService();
-        $docService->initializeDocumentation($this->package, Auth::id());
-    }
-
     public function rendered(): void
     {
         // Comms - Communication/Channel Integration
@@ -322,14 +315,8 @@ class Show extends Component
 
         $errorSettings = $this->package->errorSettings;
 
-        // Documentation pages
-        $docPages = $this->package->docPages()
-            ->with('lastEditedBy:id,name')
-            ->withCount('revisions')
-            ->orderBy('position')
-            ->orderBy('title')
-            ->get();
-        $docPublishedCount = $docPages->where('status', 'published')->count();
+        // Documentation page count (for tab badge)
+        $docPageCount = $this->package->docPages()->count();
 
         // Team members for user assignment
         $teamUsers = Auth::user()
@@ -353,8 +340,7 @@ class Show extends Component
             'teamUsers' => $teamUsers,
             'errorOccurrences' => $errorOccurrences,
             'errorSettingsEnabled' => $errorSettings?->enabled ?? false,
-            'docPages' => $docPages,
-            'docPublishedCount' => $docPublishedCount,
+            'docPageCount' => $docPageCount,
         ])->layout('platform::layouts.app');
     }
 }
