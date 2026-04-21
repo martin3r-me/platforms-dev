@@ -63,6 +63,14 @@ class ErrorIngestController extends Controller
             // Fallback: use the package that owns the token
             $targetPackage = $tokenSettings->package;
             $settings = $tokenSettings;
+
+            if ($packageKey) {
+                Log::warning('[Dev ErrorIngest] Package not resolved, falling back to token owner', [
+                    'package_key' => $packageKey,
+                    'fallback_package' => $targetPackage->name ?? 'unknown',
+                    'team_id' => $teamId,
+                ]);
+            }
         }
 
         if (!$settings->enabled) {

@@ -18,8 +18,6 @@ class DevServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/dev.php', 'dev');
 
-        $this->app->singleton('dev.error-tracker', Services\DevErrorTrackingService::class);
-        $this->app->singleton(Contracts\DevErrorTrackerContract::class, Services\DevErrorTrackingService::class);
     }
 
     public function boot(): void
