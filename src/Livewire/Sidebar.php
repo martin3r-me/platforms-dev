@@ -30,6 +30,9 @@ class Sidebar extends Component
         $activePackages = $teamId
             ? DevPackage::where('team_id', $teamId)
                 ->where('status', 'active')
+                ->with(['boards' => fn ($q) => $q->active()->withCount([
+                    'issues as open_issues_count' => fn ($q) => $q->where('status', 'open'),
+                ])->orderBy('order')])
                 ->orderBy('order')
                 ->get()
             : collect();

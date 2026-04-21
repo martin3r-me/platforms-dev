@@ -15,19 +15,57 @@
         </x-ui-sidebar-item>
     </x-ui-sidebar-list>
 
-    {{-- Active Packages --}}
+    {{-- Active Packages (Expandable) --}}
     @if($activePackages->isNotEmpty())
         <x-ui-sidebar-list label="Repositories">
             @foreach($activePackages as $package)
-                <x-ui-sidebar-item :href="route('dev.packages.show', $package)">
-                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.25.25 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z"/></svg>
-                    <span class="ml-2 text-xs text-gray-700 truncate flex-grow-1">{{ $package->name }}</span>
-                    @if(($package->open_bugs_count ?? 0) > 0)
-                        <span class="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full bg-neutral-200/80 text-gray-700 text-[11px] font-medium flex-shrink-0 leading-none">
-                            {{ $package->open_bugs_count }}
-                        </span>
-                    @endif
-                </x-ui-sidebar-item>
+                <div x-data="{ expanded: {{ request()->routeIs('dev.packages.*') && request()->route('package')?->id === $package->id ? 'true' : 'false' }} }">
+                    {{-- Package Row --}}
+                    <div class="flex items-center">
+                        <button @click="expanded = !expanded" class="flex-shrink-0 p-1 ml-1 text-gray-400 hover:text-gray-600 transition-colors">
+                            <svg :class="expanded ? 'rotate-90' : ''" class="w-3 h-3 transition-transform duration-150" viewBox="0 0 16 16" fill="currentColor"><path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"/></svg>
+                        </button>
+                        <x-ui-sidebar-item :href="route('dev.packages.show', $package)" class="flex-grow-1">
+                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.25.25 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z"/></svg>
+                            <span class="ml-2 text-xs text-gray-700 truncate flex-grow-1">{{ $package->name }}</span>
+                            @if(($package->open_bugs_count ?? 0) > 0)
+                                <span class="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full bg-neutral-200/80 text-gray-700 text-[11px] font-medium flex-shrink-0 leading-none tabular-nums">
+                                    {{ $package->open_bugs_count }}
+                                </span>
+                            @endif
+                        </x-ui-sidebar-item>
+                    </div>
+
+                    {{-- Sub-Navigation --}}
+                    <div x-show="expanded" x-collapse class="ml-6 border-l border-gray-200">
+                        {{-- Boards --}}
+                        @foreach($package->boards as $board)
+                            <a href="{{ route('dev.packages.boards.show', [$package, $board]) }}"
+                               wire:navigate
+                               class="flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors">
+                                @if($board->type->value === 'bug')
+                                    @svg('heroicon-o-bug-ant', 'w-3 h-3 text-red-500 flex-shrink-0')
+                                @elseif($board->type->value === 'feature')
+                                    @svg('heroicon-o-light-bulb', 'w-3 h-3 text-blue-500 flex-shrink-0')
+                                @else
+                                    @svg('heroicon-o-view-columns', 'w-3 h-3 text-gray-400 flex-shrink-0')
+                                @endif
+                                <span class="truncate">{{ $board->name }}</span>
+                                @if($board->open_issues_count > 0)
+                                    <span class="ml-auto text-[10px] font-medium text-gray-500 tabular-nums">{{ $board->open_issues_count }}</span>
+                                @endif
+                            </a>
+                        @endforeach
+
+                        {{-- Discussions --}}
+                        <a href="{{ route('dev.packages.discussions', $package) }}"
+                           wire:navigate
+                           class="flex items-center gap-2 px-3 py-1.5 text-[11px] text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors">
+                            <svg class="w-3 h-3 text-gray-400 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1h8.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 10.25 10H7.061l-2.574 2.573A1.458 1.458 0 0 1 2 11.543V10h-.25A1.75 1.75 0 0 1 0 8.25v-5.5C0 1.784.784 1 1.75 1ZM1.5 2.75v5.5c0 .138.112.25.25.25h1a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h3.5a.25.25 0 0 0 .25-.25v-5.5a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25Zm13 2a.25.25 0 0 0-.25-.25h-.5a.75.75 0 0 1 0-1.5h.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 14.25 12H14v1.543a1.458 1.458 0 0 1-2.487 1.03L9.22 12.28a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215l2.22 2.22v-2.19a.75.75 0 0 1 .75-.75h1a.25.25 0 0 0 .25-.25Z"/></svg>
+                            <span class="truncate">Discussions</span>
+                        </a>
+                    </div>
+                </div>
             @endforeach
         </x-ui-sidebar-list>
     @endif
