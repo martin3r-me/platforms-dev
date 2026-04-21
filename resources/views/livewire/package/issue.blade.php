@@ -15,41 +15,42 @@
 
     <x-slot name="sidebar">
         <x-ui-page-sidebar title="Uebersicht" width="w-80" :defaultOpen="true" storeKey="sidebarOpen" side="left">
-            <div class="p-6 space-y-6">
+            <div class="p-6 space-y-5">
                 {{-- Status Toggle --}}
-                <div class="space-y-2">
-                    <button type="button" wire:click="toggleDone" class="w-full text-left flex items-center justify-between py-2 px-3 rounded-lg bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/40 hover:bg-[var(--ui-primary-5)] transition-colors cursor-pointer">
+                <div>
+                    <button type="button" wire:click="toggleDone" class="w-full text-left flex items-center justify-between py-2 px-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
                         <div class="flex items-center gap-2">
                             @if($issue->is_done)
-                                @svg('heroicon-s-check-circle', 'w-4 h-4 text-[var(--ui-success)]')
+                                @svg('heroicon-s-check-circle', 'w-4 h-4 text-purple-500')
                             @else
-                                @svg('heroicon-o-circle-stack', 'w-4 h-4 text-[var(--ui-warning)]')
+                                <span class="w-4 h-4 rounded-full border-2 border-green-500 inline-block"></span>
                             @endif
-                            <span class="text-sm text-[var(--ui-secondary)]">Status</span>
+                            <span class="text-sm text-gray-700">Status</span>
                         </div>
-                        <span class="text-sm font-semibold {{ $issue->is_done ? 'text-[var(--ui-success)]' : 'text-[var(--ui-secondary)]' }}">
-                            {{ $issue->is_done ? 'Erledigt' : 'Offen' }}
+                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full {{ $issue->is_done ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700' }}">
+                            <span class="w-1.5 h-1.5 rounded-full {{ $issue->is_done ? 'bg-purple-500' : 'bg-green-500' }}"></span>
+                            {{ $issue->is_done ? 'Closed' : 'Open' }}
                         </span>
                     </button>
                 </div>
 
                 {{-- Story Points --}}
                 @if($issue->story_points)
-                    <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-[var(--ui-primary-5)] border border-[var(--ui-primary)]/20">
-                        <span class="text-sm text-[var(--ui-secondary)]">Story Points</span>
-                        <span class="text-lg font-bold text-[var(--ui-primary)]">{{ $issue->story_points->points() }} <span class="text-xs font-medium opacity-60">{{ $issue->story_points->label() }}</span></span>
+                    <div class="flex items-center justify-between py-2 px-3 rounded-md bg-gray-50 border border-gray-200">
+                        <span class="text-sm text-gray-700">Story Points</span>
+                        <span class="text-lg font-bold text-gray-900">{{ $issue->story_points->points() }} <span class="text-xs font-medium text-gray-500">{{ $issue->story_points->label() }}</span></span>
                     </div>
                 @endif
 
                 {{-- DoD Progress --}}
                 @if($criteriaTotal > 0)
-                    <div class="py-2 px-3 rounded-lg bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/40">
+                    <div class="py-2 px-3 rounded-md bg-gray-50 border border-gray-200">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-[var(--ui-secondary)]">DoD Fortschritt</span>
-                            <span class="text-sm font-semibold {{ $criteriaDone === $criteriaTotal ? 'text-[var(--ui-success)]' : 'text-[var(--ui-secondary)]' }}">{{ $criteriaDone }}/{{ $criteriaTotal }}</span>
+                            <span class="text-sm text-gray-700">DoD Progress</span>
+                            <span class="text-sm font-semibold {{ $criteriaDone === $criteriaTotal ? 'text-green-600' : 'text-gray-900' }}">{{ $criteriaDone }}/{{ $criteriaTotal }}</span>
                         </div>
-                        <div class="w-full h-1.5 rounded-full bg-[var(--ui-border)]/40 overflow-hidden">
-                            <div class="h-full rounded-full {{ $criteriaDone === $criteriaTotal ? 'bg-[var(--ui-success)]' : 'bg-[var(--ui-primary)]' }} transition-all"
+                        <div class="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
+                            <div class="h-full rounded-full {{ $criteriaDone === $criteriaTotal ? 'bg-green-500' : 'bg-blue-500' }} transition-all"
                                  style="width: {{ $criteriaTotal > 0 ? round($criteriaDone / $criteriaTotal * 100) : 0 }}%"></div>
                         </div>
                     </div>
@@ -57,47 +58,47 @@
 
                 {{-- Issue Info --}}
                 <div>
-                    <h3 class="text-sm font-bold text-[var(--ui-secondary)] uppercase tracking-wider mb-4">Details</h3>
+                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Details</h3>
                     <div class="space-y-2 text-sm">
                         @php
                             $priorityValue = $issue->priority instanceof \BackedEnum ? $issue->priority->value : $issue->priority;
                         @endphp
                         <div class="flex justify-between">
-                            <span class="text-[var(--ui-muted)]">Prioritaet:</span>
-                            <span class="font-medium {{ $priorityValue === 'high' ? 'text-[var(--ui-danger)]' : 'text-[var(--ui-secondary)]' }}">
-                                @if($priorityValue === 'high') @svg('heroicon-o-fire', 'w-3.5 h-3.5 inline') @endif
-                                {{ ['low' => 'Niedrig', 'normal' => 'Normal', 'high' => 'Hoch'][$priorityValue] ?? $priorityValue }}
+                            <span class="text-gray-500">Priority</span>
+                            <span class="font-medium d-flex items-center gap-1 {{ $priorityValue === 'high' ? 'text-red-600' : 'text-gray-900' }}">
+                                @if($priorityValue === 'high') <span class="w-2 h-2 rounded-full bg-red-500"></span> @endif
+                                {{ ['low' => 'Low', 'normal' => 'Normal', 'high' => 'High'][$priorityValue] ?? $priorityValue }}
                             </span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-[var(--ui-muted)]">Board:</span>
-                            <span class="font-medium text-[var(--ui-secondary)]">{{ $issue->board?->name ?? '-' }}</span>
+                            <span class="text-gray-500">Board</span>
+                            <span class="font-medium text-gray-900">{{ $issue->board?->name ?? '-' }}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-[var(--ui-muted)]">Slot:</span>
-                            <span class="font-medium text-[var(--ui-secondary)]">{{ $issue->slot?->name ?? 'Backlog' }}</span>
+                            <span class="text-gray-500">Column</span>
+                            <span class="font-medium text-gray-900">{{ $issue->slot?->name ?? 'Backlog' }}</span>
                         </div>
                         @if($issue->userInCharge)
                             <div class="flex justify-between">
-                                <span class="text-[var(--ui-muted)]">Zustaendig:</span>
-                                <span class="font-medium text-[var(--ui-secondary)]">{{ $issue->userInCharge->name }}</span>
+                                <span class="text-gray-500">Assignee</span>
+                                <span class="font-medium text-gray-900">{{ $issue->userInCharge->name }}</span>
                             </div>
                         @endif
                         @if($issue->due_date)
                             <div class="flex justify-between">
-                                <span class="text-[var(--ui-muted)]">Faellig:</span>
-                                <span class="font-medium {{ $issue->due_date->isPast() && !$issue->is_done ? 'text-[var(--ui-danger)]' : 'text-[var(--ui-secondary)]' }}">
+                                <span class="text-gray-500">Due date</span>
+                                <span class="font-medium {{ $issue->due_date->isPast() && !$issue->is_done ? 'text-red-600' : 'text-gray-900' }}">
                                     {{ $issue->due_date->format('d.m.Y') }}
                                 </span>
                             </div>
                         @endif
                         <div class="flex justify-between">
-                            <span class="text-[var(--ui-muted)]">Erstellt:</span>
-                            <span class="font-medium text-[var(--ui-secondary)]">{{ $issue->created_at->format('d.m.Y H:i') }}</span>
+                            <span class="text-gray-500">Created</span>
+                            <span class="font-medium text-gray-900">{{ $issue->created_at->format('d.m.Y H:i') }}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-[var(--ui-muted)]">Erstellt von:</span>
-                            <span class="font-medium text-[var(--ui-secondary)]">{{ $issue->createdBy?->name ?? 'Unbekannt' }}</span>
+                            <span class="text-gray-500">Author</span>
+                            <span class="font-medium text-gray-900">{{ $issue->createdBy?->name ?? 'Unknown' }}</span>
                         </div>
                     </div>
                 </div>
@@ -108,28 +109,22 @@
     <x-slot name="activity">
         <x-ui-page-sidebar title="Aktivitaeten" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
             <div class="p-6">
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-4">Letzte Aktivitaeten</h3>
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-4">Activity</h3>
                 <div class="space-y-3">
                     @forelse(($activities ?? []) as $activity)
-                        <div class="p-3 rounded-lg border border-[var(--ui-border)]/40 bg-[var(--ui-muted-5)] hover:bg-[var(--ui-muted)] transition-colors">
-                            <div class="flex items-start justify-between gap-2 mb-1">
-                                <div class="flex-1 min-w-0">
-                                    <div class="text-sm font-medium text-[var(--ui-secondary)] leading-snug">
-                                        {{ $activity['title'] ?? 'Aktivitaet' }}
-                                    </div>
-                                </div>
+                        <div class="px-3 py-2 rounded-md border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors">
+                            <div class="text-sm font-medium text-gray-900 leading-snug mb-1">
+                                {{ $activity['title'] ?? 'Aktivitaet' }}
                             </div>
-                            <div class="flex items-center gap-2 text-xs text-[var(--ui-muted)]">
+                            <div class="flex items-center gap-2 text-xs text-gray-500">
                                 @svg('heroicon-o-clock', 'w-3 h-3')
                                 <span>{{ $activity['time'] ?? '' }}</span>
                             </div>
                         </div>
                     @empty
                         <div class="py-8 text-center">
-                            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--ui-muted-5)] mb-3">
-                                @svg('heroicon-o-clock', 'w-6 h-6 text-[var(--ui-muted)]')
-                            </div>
-                            <p class="text-sm text-[var(--ui-muted)]">Noch keine Aktivitaeten</p>
+                            @svg('heroicon-o-clock', 'w-8 h-8 text-gray-300 mx-auto mb-3')
+                            <p class="text-sm text-gray-500">No activity yet</p>
                         </div>
                     @endforelse
                 </div>
@@ -139,40 +134,38 @@
 
     <x-ui-page-container spacing="space-y-6">
         {{-- Header Section --}}
-        <div class="bg-white rounded-xl border border-[var(--ui-border)]/60 shadow-sm overflow-hidden">
+        <div class="bg-white rounded-md border border-gray-200 overflow-hidden">
             <div class="p-6 lg:p-8">
                 <div class="flex items-start justify-between gap-4 mb-4">
                     <div class="flex-1 min-w-0">
-                        <h1 class="text-3xl font-bold text-[var(--ui-secondary)] mb-4 tracking-tight leading-tight {{ $issue->is_done ? 'line-through opacity-60' : '' }}">{{ $issue->title }}</h1>
+                        <h1 class="text-2xl font-bold text-gray-900 mb-4 tracking-tight leading-tight {{ $issue->is_done ? 'line-through opacity-60' : '' }}">{{ $issue->title }}</h1>
 
-                        {{-- Meta Informationen --}}
+                        {{-- Meta --}}
                         <div class="space-y-2">
-                            {{-- Erste Zeile: Board & Slot --}}
-                            <div class="flex flex-wrap items-center gap-6 text-sm text-[var(--ui-muted)]">
+                            <div class="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                                 @if($issue->board)
-                                    <span class="flex items-center gap-2">
+                                    <span class="flex items-center gap-1.5">
                                         @svg('heroicon-o-view-columns', 'w-4 h-4')
-                                        <span>Board: <span class="text-[var(--ui-secondary)]">{{ $issue->board->name }}</span></span>
+                                        <span>{{ $issue->board->name }}</span>
                                     </span>
                                 @endif
-                                <span class="flex items-center gap-2">
-                                    @svg('heroicon-o-view-columns', 'w-4 h-4')
-                                    <span>Slot: <span class="text-[var(--ui-secondary)]">{{ $issue->slot?->name ?? 'Backlog' }}</span></span>
+                                <span class="flex items-center gap-1.5">
+                                    @svg('heroicon-o-rectangle-stack', 'w-4 h-4')
+                                    <span>{{ $issue->slot?->name ?? 'Backlog' }}</span>
                                 </span>
                             </div>
 
-                            {{-- Zweite Zeile: Personen & Details --}}
-                            <div class="flex flex-wrap items-center gap-6 text-sm text-[var(--ui-muted)]">
+                            <div class="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                                 @if($issue->createdBy)
-                                    <span class="flex items-center gap-2">
+                                    <span class="flex items-center gap-1.5">
                                         @svg('heroicon-o-user-circle', 'w-4 h-4')
-                                        <span>Erstellt von: <span class="text-[var(--ui-secondary)]">{{ $issue->createdBy->fullname ?? $issue->createdBy->name }}</span></span>
+                                        <span>{{ $issue->createdBy->fullname ?? $issue->createdBy->name }}</span>
                                     </span>
                                 @endif
                                 @if($issue->userInCharge)
-                                    <span class="flex items-center gap-2">
+                                    <span class="flex items-center gap-1.5">
                                         @svg('heroicon-o-user', 'w-4 h-4')
-                                        <span>Verantwortlich: <span class="text-[var(--ui-secondary)]">{{ $issue->userInCharge->fullname ?? $issue->userInCharge->name }}</span></span>
+                                        <span class="text-gray-900 font-medium">{{ $issue->userInCharge->fullname ?? $issue->userInCharge->name }}</span>
                                     </span>
                                 @endif
                                 @if($issue->due_date)
@@ -180,28 +173,25 @@
                                         $isOverdue = $issue->due_date->isPast() && !$issue->is_done;
                                         $isToday = $issue->due_date->isToday();
                                         $isTomorrow = $issue->due_date->isTomorrow();
-                                        $dueDateColor = $isOverdue ? 'text-[var(--ui-danger)]' : ($isToday || $isTomorrow ? 'text-[var(--ui-warning)]' : 'text-[var(--ui-muted)]');
-                                        $dueDateTextColor = $isOverdue ? 'text-[var(--ui-danger)]' : ($isToday || $isTomorrow ? 'text-[var(--ui-warning)]' : 'text-[var(--ui-secondary)]');
                                     @endphp
-                                    <span class="flex items-center gap-2">
-                                        @svg('heroicon-o-calendar', 'w-4 h-4 ' . $dueDateColor)
-                                        <span>Faellig: <span class="{{ $dueDateTextColor }}">{{ $issue->due_date->format('d.m.Y') }}</span></span>
+                                    <span class="flex items-center gap-1.5 {{ $isOverdue ? 'text-red-600' : ($isToday || $isTomorrow ? 'text-yellow-600' : '') }}">
+                                        @svg('heroicon-o-calendar', 'w-4 h-4')
+                                        <span>{{ $issue->due_date->format('d.m.Y') }}</span>
                                     </span>
                                 @endif
                                 @if($issue->story_points)
-                                    <span class="flex items-center gap-2">
+                                    <span class="flex items-center gap-1.5">
                                         @svg('heroicon-o-sparkles', 'w-4 h-4')
-                                        <span>Story Points: <span class="text-[var(--ui-secondary)] font-medium">{{ $issue->story_points->points() }} SP</span></span>
+                                        <span class="font-medium text-gray-900">{{ $issue->story_points->points() }} SP</span>
                                     </span>
                                 @endif
                             </div>
 
                             {{-- Labels --}}
                             @if(!empty($issue->labels))
-                                <div class="flex flex-wrap items-center gap-2 text-sm text-[var(--ui-muted)]">
-                                    @svg('heroicon-o-tag', 'w-4 h-4')
+                                <div class="flex flex-wrap items-center gap-2 mt-1">
                                     @foreach($issue->labels as $label)
-                                        <span class="px-2 py-0.5 text-xs rounded-full bg-[var(--ui-primary-5)] text-[var(--ui-primary)] border border-[var(--ui-primary)]/20">{{ $label }}</span>
+                                        <span class="px-2.5 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 border border-blue-200">{{ $label }}</span>
                                     @endforeach
                                 </div>
                             @endif
@@ -211,13 +201,21 @@
                     {{-- Status Badges --}}
                     <div class="flex flex-col items-end gap-2 flex-shrink-0">
                         @if($issue->is_done)
-                            <x-ui-badge variant="success" size="sm">Erledigt</x-ui-badge>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold border border-purple-200">
+                                @svg('heroicon-s-check-circle', 'w-3.5 h-3.5')
+                                Closed
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold border border-green-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                Open
+                            </span>
                         @endif
                         @php $priorityValue = $issue->priority instanceof \BackedEnum ? $issue->priority->value : $issue->priority; @endphp
                         @if($priorityValue === 'high')
-                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--ui-danger)]/10 text-[var(--ui-danger)] text-xs font-semibold">
-                                @svg('heroicon-o-fire', 'w-3.5 h-3.5')
-                                Hoch
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold border border-red-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                High
                             </span>
                         @endif
                     </div>
@@ -226,11 +224,11 @@
         </div>
 
         {{-- Form Section --}}
-        <div class="bg-white rounded-xl border border-[var(--ui-border)]/60 shadow-sm overflow-hidden">
+        <div class="bg-white rounded-md border border-gray-200 overflow-hidden">
             <div class="p-6 lg:p-8">
                 {{-- Grundinformationen --}}
                 <div class="mb-8">
-                    <h2 class="text-lg font-semibold text-[var(--ui-secondary)] mb-4">Grundinformationen</h2>
+                    <h2 class="text-base font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Grundinformationen</h2>
                     <x-ui-form-grid :cols="2" :gap="6">
                         <div class="col-span-2">
                             <x-ui-input-text
@@ -248,56 +246,56 @@
                             <div class="mb-4">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-2 mb-1">
-                                        <label class="text-sm font-semibold text-[var(--ui-secondary)]">Definition of Done</label>
+                                        <label class="text-sm font-semibold text-gray-900">Definition of Done</label>
                                     </div>
                                     @if($criteriaTotal > 0)
                                         <div class="flex items-center gap-2">
-                                            <span class="text-xs font-medium text-[var(--ui-muted)]">
-                                                {{ $criteriaDone }}/{{ $criteriaTotal }} erledigt
+                                            <span class="text-xs font-medium text-gray-500">
+                                                {{ $criteriaDone }}/{{ $criteriaTotal }} done
                                             </span>
-                                            <div class="w-20 h-1.5 bg-[var(--ui-muted-5)] rounded-full overflow-hidden">
+                                            <div class="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                                 <div
-                                                    class="h-full transition-all duration-300 {{ $criteriaDone === $criteriaTotal ? 'bg-[var(--ui-success)]' : 'bg-[var(--ui-primary)]' }}"
+                                                    class="h-full transition-all duration-300 {{ $criteriaDone === $criteriaTotal ? 'bg-green-500' : 'bg-blue-500' }}"
                                                     style="width: {{ $criteriaTotal > 0 ? round($criteriaDone / $criteriaTotal * 100) : 0 }}%"
                                                 ></div>
                                             </div>
                                         </div>
                                     @endif
                                 </div>
-                                <p class="text-xs text-[var(--ui-muted)]">Kriterien, die erfuellt sein muessen, damit das Issue als erledigt gilt</p>
+                                <p class="text-xs text-gray-500">Kriterien, die erfuellt sein muessen, damit das Issue als erledigt gilt</p>
                             </div>
 
                             {{-- Criteria List --}}
                             <div class="space-y-2">
                                 @forelse($criteria as $index => $criterion)
                                     <div
-                                        class="group flex items-start gap-3 p-3 rounded-lg border border-[var(--ui-border)]/60 bg-[var(--ui-surface)] hover:border-[var(--ui-primary)]/40 transition-all duration-200 {{ ($criterion['done'] ?? false) ? 'bg-[var(--ui-success-5)]' : '' }}"
+                                        class="group flex items-start gap-3 p-3 rounded-md border border-gray-200 bg-white hover:border-gray-300 transition-all duration-200 {{ ($criterion['done'] ?? false) ? 'bg-green-50/50' : '' }}"
                                         wire:key="dod-item-{{ $index }}"
                                     >
                                         <button
                                             type="button"
                                             wire:click="toggleCriterion({{ $index }})"
-                                            class="flex-shrink-0 w-5 h-5 mt-0.5 rounded border-2 transition-all duration-200 flex items-center justify-center {{ ($criterion['done'] ?? false) ? 'bg-[var(--ui-success)] border-[var(--ui-success)] text-white' : 'border-[var(--ui-border)] hover:border-[var(--ui-primary)]' }}"
+                                            class="flex-shrink-0 w-5 h-5 mt-0.5 rounded border-2 transition-all duration-200 flex items-center justify-center {{ ($criterion['done'] ?? false) ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-500' }}"
                                         >
                                             @if($criterion['done'] ?? false)
                                                 @svg('heroicon-s-check', 'w-3 h-3')
                                             @endif
                                         </button>
 
-                                        <span class="flex-1 min-w-0 text-sm {{ ($criterion['done'] ?? false) ? 'line-through text-[var(--ui-muted)]' : 'text-[var(--ui-secondary)]' }}">
+                                        <span class="flex-1 min-w-0 text-sm {{ ($criterion['done'] ?? false) ? 'line-through text-gray-400' : 'text-gray-900' }}">
                                             {{ $criterion['text'] ?? '' }}
                                         </span>
 
                                         <button
                                             type="button"
                                             wire:click="removeCriterion({{ $index }})"
-                                            class="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded text-[var(--ui-muted)] hover:text-[var(--ui-danger)] hover:bg-[var(--ui-danger-5)] transition-all duration-200"
+                                            class="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
                                         >
                                             @svg('heroicon-o-trash', 'w-4 h-4')
                                         </button>
                                     </div>
                                 @empty
-                                    <div class="text-center py-6 text-[var(--ui-muted)]">
+                                    <div class="text-center py-6 text-gray-400">
                                         <div class="flex justify-center mb-2">
                                             @svg('heroicon-o-clipboard-document-check', 'w-8 h-8')
                                         </div>
@@ -316,7 +314,7 @@
                                         <button
                                             type="button"
                                             @click="isAdding = true; $nextTick(() => $refs.newInput?.focus())"
-                                            class="w-full flex items-center gap-2 p-3 rounded-lg border border-dashed border-[var(--ui-border)]/60 text-[var(--ui-muted)] hover:border-[var(--ui-primary)]/60 hover:text-[var(--ui-primary)] hover:bg-[var(--ui-primary-5)] transition-all duration-200"
+                                            class="w-full flex items-center gap-2 p-3 rounded-md border border-dashed border-gray-300 text-gray-500 hover:border-green-400 hover:text-green-600 hover:bg-green-50/50 transition-all duration-200"
                                         >
                                             @svg('heroicon-o-plus', 'w-4 h-4')
                                             <span class="text-sm">DoD-Kriterium hinzufuegen</span>
@@ -324,7 +322,7 @@
                                     </template>
 
                                     <template x-if="isAdding">
-                                        <div class="flex items-center gap-2 p-2 rounded-lg border border-[var(--ui-primary)]/60 bg-[var(--ui-primary-5)]">
+                                        <div class="flex items-center gap-2 p-2 rounded-md border border-blue-300 bg-blue-50">
                                             <input
                                                 type="text"
                                                 x-ref="newInput"
@@ -332,20 +330,20 @@
                                                 @keydown.enter.prevent="if(newText.trim()) { $wire.addCriterion(newText); newText = ''; }"
                                                 @keydown.escape="isAdding = false; newText = ''"
                                                 @blur="if(!newText.trim()) { isAdding = false; }"
-                                                class="flex-1 bg-transparent border-none p-1 text-sm focus:ring-0 focus:outline-none text-[var(--ui-secondary)]"
+                                                class="flex-1 bg-transparent border-none p-1 text-sm focus:ring-0 focus:outline-none text-gray-900"
                                                 placeholder="Neues Kriterium eingeben..."
                                             />
                                             <button
                                                 type="button"
                                                 @click="if(newText.trim()) { $wire.addCriterion(newText); newText = ''; } isAdding = false;"
-                                                class="flex-shrink-0 p-1 rounded text-[var(--ui-primary)] hover:bg-[var(--ui-primary-10)] transition-colors"
+                                                class="flex-shrink-0 p-1 rounded text-green-600 hover:bg-green-100 transition-colors"
                                             >
                                                 @svg('heroicon-o-check', 'w-5 h-5')
                                             </button>
                                             <button
                                                 type="button"
                                                 @click="isAdding = false; newText = ''"
-                                                class="flex-shrink-0 p-1 rounded text-[var(--ui-muted)] hover:text-[var(--ui-danger)] transition-colors"
+                                                class="flex-shrink-0 p-1 rounded text-gray-400 hover:text-red-600 transition-colors"
                                             >
                                                 @svg('heroicon-o-x-mark', 'w-5 h-5')
                                             </button>
@@ -357,8 +355,8 @@
 
                         <div>
                             <div class="mb-2">
-                                <label class="text-sm font-semibold text-[var(--ui-secondary)]">Prioritaet</label>
-                                <p class="text-xs text-[var(--ui-muted)] mt-1">Bestimmt die Dringlichkeit des Issues.</p>
+                                <label class="text-sm font-semibold text-gray-900">Prioritaet</label>
+                                <p class="text-xs text-gray-500 mt-1">Bestimmt die Dringlichkeit des Issues.</p>
                             </div>
                             <x-ui-input-select
                                 name="priority"
@@ -377,8 +375,8 @@
                         </div>
                         <div>
                             <div class="mb-2">
-                                <label class="text-sm font-semibold text-[var(--ui-secondary)]">Story Points</label>
-                                <p class="text-xs text-[var(--ui-muted)] mt-1">Schaetzung der Komplexitaet und des Aufwands.</p>
+                                <label class="text-sm font-semibold text-gray-900">Story Points</label>
+                                <p class="text-xs text-gray-500 mt-1">Schaetzung der Komplexitaet und des Aufwands.</p>
                             </div>
                             <x-ui-input-select
                                 name="storyPoints"
@@ -396,24 +394,24 @@
                 </div>
 
                 {{-- Faelligkeit & Verantwortung --}}
-                <div class="mb-8 pb-8 border-b border-[var(--ui-border)]/60">
-                    <h2 class="text-lg font-semibold text-[var(--ui-secondary)] mb-4">Zuweisung & Faelligkeit</h2>
+                <div class="mb-8 pb-8 border-b border-gray-200">
+                    <h2 class="text-base font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Zuweisung & Faelligkeit</h2>
                     <x-ui-form-grid :cols="2" :gap="6">
                         <div>
                             <div class="mb-2">
-                                <label class="text-sm font-semibold text-[var(--ui-secondary)]">Faelligkeitsdatum</label>
-                                <p class="text-xs text-[var(--ui-muted)] mt-1">Der Termin, bis zu dem das Issue abgeschlossen sein soll.</p>
+                                <label class="text-sm font-semibold text-gray-900">Faelligkeitsdatum</label>
+                                <p class="text-xs text-gray-500 mt-1">Der Termin, bis zu dem das Issue abgeschlossen sein soll.</p>
                             </div>
                             <input type="date"
                                    wire:model.blur="dueDate"
                                    wire:change="updateDueDate"
-                                   class="w-full px-4 py-2.5 text-sm rounded-lg bg-[var(--ui-surface)] border border-[var(--ui-border)]/60 text-[var(--ui-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/20 focus:border-[var(--ui-primary)] transition-all duration-200"
+                                   class="w-full px-4 py-2.5 text-sm rounded-md bg-white border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
                             />
                         </div>
                         <div>
                             <div class="mb-2">
-                                <label class="text-sm font-semibold text-[var(--ui-secondary)]">Verantwortlicher</label>
-                                <p class="text-xs text-[var(--ui-muted)] mt-1">Die Person, die fuer die Umsetzung verantwortlich ist.</p>
+                                <label class="text-sm font-semibold text-gray-900">Verantwortlicher</label>
+                                <p class="text-xs text-gray-500 mt-1">Die Person, die fuer die Umsetzung verantwortlich ist.</p>
                             </div>
                             <x-ui-input-select
                                 name="userInChargeId"
@@ -429,8 +427,8 @@
                         </div>
                         <div class="col-span-2">
                             <div class="mb-2">
-                                <label class="text-sm font-semibold text-[var(--ui-secondary)]">Board Slot</label>
-                                <p class="text-xs text-[var(--ui-muted)] mt-1">Position auf dem Kanban-Board.</p>
+                                <label class="text-sm font-semibold text-gray-900">Board Slot</label>
+                                <p class="text-xs text-gray-500 mt-1">Position auf dem Kanban-Board.</p>
                             </div>
                             <x-ui-input-select
                                 name="slotId"
@@ -450,8 +448,8 @@
                 {{-- Beschreibung --}}
                 <div>
                     <div class="mb-4">
-                        <label class="text-sm font-semibold text-[var(--ui-secondary)]">Beschreibung</label>
-                        <p class="text-xs text-[var(--ui-muted)] mt-1">Zusaetzliche Notizen und Informationen zum Issue</p>
+                        <label class="text-sm font-semibold text-gray-900">Beschreibung</label>
+                        <p class="text-xs text-gray-500 mt-1">Zusaetzliche Notizen und Informationen zum Issue</p>
                     </div>
                     <x-ui-input-textarea
                         name="description"
@@ -465,14 +463,14 @@
 
                 {{-- Labels --}}
                 @if(!empty($issue->labels))
-                    <div class="mt-8 pt-8 border-t border-[var(--ui-border)]/60">
+                    <div class="mt-8 pt-8 border-t border-gray-200">
                         <div class="flex items-center gap-2 mb-3">
-                            @svg('heroicon-o-tag', 'w-4 h-4 text-[var(--ui-muted)]')
-                            <label class="text-sm font-semibold text-[var(--ui-secondary)]">Labels</label>
+                            @svg('heroicon-o-tag', 'w-4 h-4 text-gray-400')
+                            <label class="text-sm font-semibold text-gray-900">Labels</label>
                         </div>
                         <div class="flex items-center gap-1.5 flex-wrap">
                             @foreach($issue->labels as $label)
-                                <span class="px-2.5 py-1 text-xs rounded-full bg-[var(--ui-primary-5)] text-[var(--ui-primary)] border border-[var(--ui-primary)]/20 font-medium">{{ $label }}</span>
+                                <span class="px-2.5 py-1 text-xs rounded-full bg-blue-100 text-blue-700 border border-blue-200 font-medium">{{ $label }}</span>
                             @endforeach
                         </div>
                     </div>
