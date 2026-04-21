@@ -62,16 +62,16 @@
 
                 <div>
                     @forelse($recentCommits as $commit)
-                        <div class="d-flex items-start gap-3 px-5 py-3 hover:bg-gray-50 transition-colors group {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
-                            <div class="flex-shrink-0 d-flex flex-col items-center mt-1.5" style="width: 12px;">
+                        <div class="flex items-start gap-3 px-5 py-3 hover:bg-gray-50 transition-colors group {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
+                            <div class="flex-shrink-0 flex flex-col items-center mt-1.5" style="width: 12px;">
                                 <div class="w-2 h-2 rounded-full bg-green-500"></div>
                                 @if(!$loop->last)
-                                    <div class="w-px flex-grow-1 bg-gray-200 mt-0.5" style="min-height: 24px;"></div>
+                                    <div class="w-px flex-1 bg-gray-200 mt-0.5" style="min-height: 24px;"></div>
                                 @endif
                             </div>
-                            <div class="min-w-0 flex-grow-1">
+                            <div class="min-w-0 flex-1">
                                 <div class="text-xs text-gray-900 truncate group-hover:text-blue-600 transition-colors font-medium leading-relaxed">{{ Str::limit(Str::before($commit->message, "\n"), 80) }}</div>
-                                <div class="text-[11px] text-gray-500 mt-1 d-flex items-center gap-1.5">
+                                <div class="text-[11px] text-gray-500 mt-1 flex items-center gap-1.5">
                                     <span class="font-medium text-gray-700">{{ $commit->author_login ?? $commit->author_name }}</span>
                                     <span class="text-gray-300">/</span>
                                     <span>{{ $commit->repo->name ?? '' }}</span>
@@ -105,7 +105,7 @@
                     <div>
                         @forelse($openPullRequests as $pr)
                             <div class="px-5 py-3 hover:bg-gray-50 transition-colors {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
-                                <div class="d-flex items-start gap-2.5">
+                                <div class="flex items-start gap-2.5">
                                     <div class="flex-shrink-0 mt-0.5">
                                         @if($pr->is_draft)
                                             <div class="w-4 h-4 rounded-full border-[1.5px] border-dashed border-gray-400"></div>
@@ -122,7 +122,7 @@
                                             @endif
                                         </div>
                                         @if($pr->head_ref)
-                                            <div class="d-flex items-center gap-1.5 mt-2">
+                                            <div class="flex items-center gap-1.5 mt-2">
                                                 <code class="px-1.5 py-0.5 text-[10px] font-mono bg-blue-50 text-blue-700 rounded border border-blue-100">{{ $pr->head_ref }}</code>
                                                 <span class="text-gray-300">&rarr;</span>
                                                 <code class="px-1.5 py-0.5 text-[10px] font-mono bg-gray-100 text-gray-600 rounded">{{ $pr->base_ref }}</code>
@@ -153,17 +153,17 @@
                         @forelse($packages as $package)
                             <a href="{{ route('dev.packages.show', $package) }}"
                                wire:navigate
-                               class="d-flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
+                               class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
                                 <div class="flex-shrink-0 text-gray-400">
                                     @svg($package->icon ?? 'heroicon-o-cube', 'w-4 h-4')
                                 </div>
-                                <div class="min-w-0 flex-grow-1">
+                                <div class="min-w-0 flex-1">
                                     <span class="text-xs font-medium text-blue-600 hover:underline truncate block leading-relaxed">{{ $package->name }}</span>
                                     @if($package->github_repo_full_name)
                                         <span class="text-[11px] text-gray-500 font-mono truncate block mt-0.5">{{ $package->github_repo_full_name }}</span>
                                     @endif
                                 </div>
-                                <div class="flex-shrink-0 d-flex items-center gap-1.5">
+                                <div class="flex-shrink-0 flex items-center gap-1.5">
                                     @if(($packageStats[$package->id]['open_bugs'] ?? 0) > 0)
                                         <span class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 font-medium border border-red-100">
                                             {{ $packageStats[$package->id]['open_bugs'] }}
@@ -208,11 +208,11 @@
                     @forelse($recentIssues as $issue)
                         <a href="{{ route('dev.packages.issues.show', [$issue->board->package, $issue]) }}"
                            wire:navigate
-                           class="d-flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
+                           class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
                             <div class="flex-shrink-0">
                                 <svg class="w-4 h-4 text-green-600" viewBox="0 0 16 16" fill="currentColor"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg>
                             </div>
-                            <div class="min-w-0 flex-grow-1">
+                            <div class="min-w-0 flex-1">
                                 <div class="text-xs font-medium text-gray-900 truncate leading-relaxed">{{ $issue->title }}</div>
                                 <div class="text-[11px] text-gray-500 mt-0.5">
                                     {{ $issue->board->package->name }} &middot; {{ $issue->board->name }}
@@ -247,11 +247,11 @@
                     @forelse($recentlyDone as $issue)
                         <a href="{{ route('dev.packages.issues.show', [$issue->board->package, $issue]) }}"
                            wire:navigate
-                           class="d-flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
+                           class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
                             <div class="flex-shrink-0">
                                 <svg class="w-4 h-4 text-purple-600" viewBox="0 0 16 16" fill="currentColor"><path d="M11.28 6.78a.75.75 0 0 0-1.06-1.06L7.25 8.69 5.78 7.22a.75.75 0 0 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0ZM16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0Zm-1.5 0a6.5 6.5 0 1 0-13 0 6.5 6.5 0 0 0 13 0Z"/></svg>
                             </div>
-                            <div class="min-w-0 flex-grow-1">
+                            <div class="min-w-0 flex-1">
                                 <div class="text-xs text-gray-400 line-through truncate">{{ $issue->title }}</div>
                                 <div class="text-[11px] text-gray-500 mt-0.5">
                                     {{ $issue->board->package->name }}
@@ -290,7 +290,7 @@
             </x-slot>
 
             <div class="space-y-5">
-                <div class="d-flex items-center gap-3 p-4 rounded-md {{ $errorEndpointConfigured ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200' }}">
+                <div class="flex items-center gap-3 p-4 rounded-md {{ $errorEndpointConfigured ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200' }}">
                     @if($errorEndpointConfigured)
                         @svg('heroicon-s-check-circle', 'w-5 h-5 text-green-600 flex-shrink-0')
                         <span class="text-xs text-green-800">Error Tracking ist aktiv auf dieser Instanz.</span>
