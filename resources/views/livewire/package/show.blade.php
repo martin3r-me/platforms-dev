@@ -173,7 +173,7 @@
 
         <div class="max-w-5xl mx-auto px-6 py-6">
             {{-- Repository Header --}}
-            <div class="mb-8">
+            <div class="mb-5">
                 <div class="d-flex items-center gap-3 mb-3">
                     <svg class="w-5 h-5 text-gray-500" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.25.25 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z"/></svg>
                     <h1 class="text-xl font-semibold text-gray-900">{{ $package->name }}</h1>
@@ -210,22 +210,22 @@
                                 @endif
                             </a>
                         @endforeach
-                        <a href="{{ route('dev.packages.discussions', $package) }}"
-                           wire:navigate
-                           class="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300 transition-colors">
-                            <svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1h8.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 10.25 10H7.061l-2.574 2.573A1.458 1.458 0 0 1 2 11.543V10h-.25A1.75 1.75 0 0 1 0 8.25v-5.5C0 1.784.784 1 1.75 1ZM1.5 2.75v5.5c0 .138.112.25.25.25h1a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h3.5a.25.25 0 0 0 .25-.25v-5.5a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25Zm13 2a.25.25 0 0 0-.25-.25h-.5a.75.75 0 0 1 0-1.5h.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 14.25 12H14v1.543a1.458 1.458 0 0 1-2.487 1.03L9.22 12.28a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215l2.22 2.22v-2.19a.75.75 0 0 1 .75-.75h1a.25.25 0 0 0 .25-.25Z"/></svg>
-                            Discussions
-                            @if($discussionCount > 0)
-                                <span class="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-neutral-200/80 text-gray-600 tabular-nums leading-none">{{ $discussionCount }}</span>
-                            @endif
-                        </a>
+                        @if($docPages->isNotEmpty())
+                            <a href="{{ route('dev.packages.docs.show', [$package, $docPages->first()]) }}"
+                               wire:navigate
+                               class="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300 transition-colors">
+                                @svg('heroicon-o-book-open', 'w-4 h-4')
+                                Docs
+                                <span class="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-neutral-200/80 text-gray-600 tabular-nums leading-none">{{ $docPages->count() }}</span>
+                            </a>
+                        @endif
                     </nav>
                 </div>
             </div>
 
             {{-- Error Occurrences --}}
             @if($errorSettingsEnabled && $errorOccurrences->count() > 0)
-                <div class="bg-white rounded-md border border-red-200 overflow-hidden mb-8">
+                <div class="bg-white rounded-md border border-red-200 overflow-hidden mb-5">
                     <div class="flex items-center justify-between px-5 py-3 border-b border-red-200 bg-red-50">
                         <div class="d-flex items-center gap-2">
                             <span class="relative flex h-2 w-2">
@@ -301,7 +301,7 @@
             </div>
 
             {{-- Boards Grid --}}
-            <div class="mb-10">
+            <div class="mb-6">
                 <div class="d-flex items-center justify-between mb-4">
                     <h2 class="text-sm font-semibold text-gray-900">Boards</h2>
                     <button wire:click="$set('showCreateBoardModal', true)"
@@ -378,7 +378,7 @@
             </div>
 
             {{-- Commits & PRs --}}
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                 {{-- Letzte Commits --}}
                 <div class="lg:col-span-2 bg-white rounded-md border border-gray-200 overflow-hidden">
                     <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-200 bg-gray-50">
@@ -475,7 +475,7 @@
             </div>
 
             {{-- Issues + Discussions + Recently Closed --}}
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {{-- Open Issues --}}
                 <div class="bg-white rounded-md border border-gray-200 overflow-hidden">
                     <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-200 bg-gray-50">
@@ -557,7 +557,7 @@
 
             {{-- Documentation --}}
             @if($docPages->isNotEmpty())
-                <div class="mb-10">
+                <div class="mb-6">
                     <div class="d-flex items-center justify-between mb-4">
                         <div class="d-flex items-center gap-2">
                             @svg('heroicon-o-book-open', 'w-4 h-4 text-gray-500')
@@ -592,7 +592,9 @@
                                 $icon = $iconMap[$docPage->type->value] ?? 'heroicon-o-document-text';
                                 $isPublished = $docPage->status === 'published';
                             @endphp
-                            <div class="d-flex items-center gap-3 px-5 py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors">
+                            <a href="{{ route('dev.packages.docs.show', [$package, $docPage]) }}"
+                               wire:navigate
+                               class="d-flex items-center gap-3 px-5 py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors">
                                 <div class="flex-shrink-0">
                                     @svg($icon, 'w-4 h-4 ' . ($isPublished ? 'text-[#238636]' : 'text-gray-400'))
                                 </div>
@@ -617,56 +619,12 @@
                                         @endif
                                     </div>
                                 </div>
-                            </div>
+                            </a>
                         @endforeach
                     </div>
                 </div>
             @endif
 
-            {{-- Discussions Preview --}}
-            @if($recentDiscussions->isNotEmpty() || $discussionCount > 0)
-                <div class="mb-10">
-                    <div class="bg-white rounded-md border border-gray-200 overflow-hidden">
-                        <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 bg-gray-50">
-                            <div class="d-flex items-center gap-2">
-                                <svg class="w-4 h-4 text-gray-500" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1h8.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 10.25 10H7.061l-2.574 2.573A1.458 1.458 0 0 1 2 11.543V10h-.25A1.75 1.75 0 0 1 0 8.25v-5.5C0 1.784.784 1 1.75 1ZM1.5 2.75v5.5c0 .138.112.25.25.25h1a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h3.5a.25.25 0 0 0 .25-.25v-5.5a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25Zm13 2a.25.25 0 0 0-.25-.25h-.5a.75.75 0 0 1 0-1.5h.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 14.25 12H14v1.543a1.458 1.458 0 0 1-2.487 1.03L9.22 12.28a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215l2.22 2.22v-2.19a.75.75 0 0 1 .75-.75h1a.25.25 0 0 0 .25-.25Z"/></svg>
-                                <h2 class="text-xs font-semibold text-gray-900">Recent discussions</h2>
-                                @if($discussionCount > 0)
-                                    <span class="px-2 py-0.5 text-[11px] font-medium rounded-full bg-neutral-200/80 text-gray-600 tabular-nums">{{ $discussionCount }}</span>
-                                @endif
-                            </div>
-                            <a href="{{ route('dev.packages.discussions', $package) }}" wire:navigate class="text-[11px] text-blue-600 hover:underline font-medium">
-                                View all
-                            </a>
-                        </div>
-                        <div>
-                            @foreach($recentDiscussions as $discussion)
-                                <a href="{{ route('dev.packages.discussions', $package) }}"
-                                   wire:navigate
-                                   class="d-flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0">
-                                    <div class="flex-shrink-0">
-                                        @if($discussion->is_pinned)
-                                            @svg('heroicon-s-bookmark', 'w-4 h-4 text-blue-500')
-                                        @else
-                                            @svg('heroicon-o-chat-bubble-left', 'w-4 h-4 text-gray-400')
-                                        @endif
-                                    </div>
-                                    <div class="min-w-0 flex-grow-1">
-                                        <div class="text-xs font-medium text-gray-900 truncate">{{ $discussion->title }}</div>
-                                        <div class="text-[11px] text-gray-500">
-                                            {{ $discussion->createdBy?->name }}
-                                            &middot; {{ $discussion->replies_count }} {{ $discussion->replies_count === 1 ? 'reply' : 'replies' }}
-                                        </div>
-                                    </div>
-                                    <div class="flex-shrink-0 text-[11px] text-gray-400">
-                                        {{ $discussion->created_at->diffForHumans() }}
-                                    </div>
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
-            @endif
         </div>
     </x-ui-page-container>
 
