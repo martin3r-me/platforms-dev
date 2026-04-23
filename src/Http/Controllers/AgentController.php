@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
+use Platform\Dev\Enums\IssueStoryPoints;
 use Platform\Dev\Models\DevIssue;
 use Platform\Dev\Models\DevPackage;
 
@@ -26,7 +27,7 @@ class AgentController extends Controller
 
         // Find next open, unlocked issue on feature/bug boards (not backlog).
         // Order: slot position (board column order), then issue order within slot.
-        $issue = DevIssue::query()
+        $query = DevIssue::query()
             ->whereHas('board', fn ($q) => $q
                 ->where('dev_package_id', $package->id)
                 ->whereIn('type', ['feature', 'bug'])
@@ -37,7 +38,22 @@ class AgentController extends Controller
             ->where(function ($q) {
                 $q->whereNull('agent_locked_at')
                   ->orWhere('agent_locked_at', '<', now()->subMinutes(30));
-            })
+            });
+
+        // Filter by max story points (worker sends this from local config)
+        $maxPoints = $request->input('max_story_points');
+        if ($maxPoints !== null) {
+            $allowed = collect(IssueStoryPoints::cases())
+                ->filter(fn ($sp) => $sp->points() <= (int) $maxPoints)
+                ->pluck('value')
+                ->all();
+            $query->where(function ($q) use ($allowed) {
+                $q->whereNull('story_points')
+                  ->orWhereIn('story_points', $allowed);
+            });
+        }
+
+        $issue = $query
             ->join('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
             ->orderBy('dev_board_slots.order')  // slot position on board
             ->orderBy('dev_issues.slot_order')  // issue position within slot
