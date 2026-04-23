@@ -45,6 +45,15 @@ class ListPackagesTool implements ToolContract, ToolMetadataContract
     public function execute(array $arguments, ToolContext $context): ToolResult
     {
         try {
+            $arguments = array_merge([
+                'query' => null,
+                'search' => null,
+                'filters' => [],
+                'sort' => null,
+                'limit' => null,
+                'offset' => null,
+            ], $arguments);
+
             $resolved = $this->resolveTeam($arguments, $context);
             if ($resolved['error']) {
                 return $resolved['error'];
