@@ -46,6 +46,9 @@ class ListDiscussionsTool implements ToolContract, ToolMetadataContract
     public function execute(array $arguments, ToolContext $context): ToolResult
     {
         try {
+            // Ensure standard GET keys exist to prevent "Undefined array key" errors
+            $arguments += ['query' => null, 'search' => null, 'sort' => null, 'limit' => null, 'offset' => null, 'filters' => null];
+
             $resolved = $this->resolveTeam($arguments, $context);
             if ($resolved['error']) {
                 return $resolved['error'];
