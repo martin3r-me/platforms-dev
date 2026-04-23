@@ -306,13 +306,17 @@ class Board extends Component
 
     public function render()
     {
+        if (!$this->groups || $this->groups->isEmpty()) {
+            $this->loadGroups();
+        }
+
         $openCount = $this->groups
             ->filter(fn ($g) => !($g->isDoneGroup ?? false))
-            ->sum(fn ($g) => $g->tasks->count());
+            ->sum(fn ($g) => ($g->tasks ?? collect())->count());
 
         $doneCount = $this->groups
             ->filter(fn ($g) => $g->isDoneGroup ?? false)
-            ->sum(fn ($g) => $g->tasks->count());
+            ->sum(fn ($g) => ($g->tasks ?? collect())->count());
 
         $allBoards = $this->package->boards()
             ->active()
