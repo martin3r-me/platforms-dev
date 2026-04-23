@@ -200,6 +200,26 @@ class AgentController extends Controller
     }
 
     /**
+     * List all active packages with their repo mapping.
+     *
+     * GET /api/dev/agent/packages
+     */
+    public function packages(Request $request): JsonResponse
+    {
+        $packages = DevPackage::active()
+            ->orderBy('order')
+            ->get(['id', 'name', 'github_repo_full_name', 'status']);
+
+        return response()->json([
+            'data' => $packages->map(fn (DevPackage $p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'github_repo_full_name' => $p->github_repo_full_name,
+            ])->values(),
+        ]);
+    }
+
+    /**
      * Resolve a DevPackage by slug.
      *
      * Accepts:
