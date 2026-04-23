@@ -56,7 +56,7 @@ class GetPackageTool implements ToolContract, ToolMetadataContract
             }
 
             $package = DevPackage::where('team_id', $teamId)
-                ->with(['boards.slots', 'boards' => fn ($q) => $q->withCount('issues')])
+                ->with(['boards.slots', 'boards' => fn ($q) => $q->withCount('issues'), 'userInCharge', 'lockedByUser'])
                 ->find($packageId);
 
             if (!$package) {
@@ -80,6 +80,18 @@ class GetPackageTool implements ToolContract, ToolMetadataContract
                     'github_repo_id' => $package->github_repo_id,
                     'status' => $package->status,
                     'icon' => $package->icon,
+                    'user_in_charge' => $package->userInCharge ? [
+                        'id' => $package->userInCharge->id,
+                        'name' => $package->userInCharge->name,
+                    ] : null,
+                    'lock' => $package->isLocked() ? [
+                        'locked_by' => [
+                            'id' => $package->lockedByUser?->id,
+                            'name' => $package->lockedByUser?->name,
+                        ],
+                        'locked_at' => $package->locked_at?->toISOString(),
+                        'reason' => $package->lock_reason,
+                    ] : null,
                     'created_at' => $package->created_at?->toISOString(),
                     'updated_at' => $package->updated_at?->toISOString(),
                 ],

@@ -172,6 +172,33 @@
         @endif
 
         <div class="max-w-5xl mx-auto px-6 py-6">
+            {{-- Lock Banner --}}
+            @if($package->isLocked())
+                <div class="mb-5 rounded-md border border-amber-300 bg-amber-50 px-5 py-3 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        @svg('heroicon-s-lock-closed', 'w-5 h-5 text-amber-600 flex-shrink-0')
+                        <div>
+                            <span class="text-xs font-semibold text-amber-900">
+                                {{ $package->lockedByUser?->name ?? 'Unbekannt' }} arbeitet daran
+                            </span>
+                            @if($package->lock_reason)
+                                <span class="text-xs text-amber-700"> &mdash; {{ $package->lock_reason }}</span>
+                            @endif
+                            <div class="text-[11px] text-amber-600 mt-0.5">
+                                Seit {{ $package->locked_at?->diffForHumans() }}
+                            </div>
+                        </div>
+                    </div>
+                    @if($package->locked_by_user_id === auth()->id())
+                        <button wire:click="unlockPackage"
+                                class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-md border border-amber-300 transition-colors">
+                            @svg('heroicon-o-lock-open', 'w-3.5 h-3.5')
+                            Freigeben
+                        </button>
+                    @endif
+                </div>
+            @endif
+
             {{-- Repository Header --}}
             <div class="mb-5">
                 <div class="d-flex items-center gap-3 mb-3">
@@ -181,6 +208,28 @@
                         {{ $package->status === 'active' ? 'Public' : 'Archived' }}
                     </span>
                 </div>
+
+                {{-- Owner + Lock Button --}}
+                <div class="flex items-center gap-3 mb-3">
+                    @if($package->userInCharge)
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-xs font-medium text-blue-800">
+                            <span class="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-[10px] font-bold text-blue-700 flex-shrink-0">
+                                {{ strtoupper(mb_substr($package->userInCharge->name, 0, 1)) }}
+                            </span>
+                            {{ $package->userInCharge->name }}
+                            <span class="text-blue-500 font-normal">&middot; Verantwortlich</span>
+                        </span>
+                    @endif
+
+                    @if(!$package->isLocked())
+                        <button wire:click="lockPackage"
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-gray-600 bg-gray-100 hover:bg-amber-50 hover:text-amber-700 border border-gray-200 hover:border-amber-300 transition-colors">
+                            @svg('heroicon-o-lock-closed', 'w-3.5 h-3.5')
+                            Ich arbeite daran
+                        </button>
+                    @endif
+                </div>
+
                 @if($package->description)
                     <p class="text-sm text-gray-600 mb-4 max-w-2xl">{{ $package->description }}</p>
                 @endif

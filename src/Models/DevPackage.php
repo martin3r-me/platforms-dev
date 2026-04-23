@@ -24,6 +24,9 @@ class DevPackage extends Model
         'team_id',
         'created_by_user_id',
         'user_in_charge_id',
+        'locked_by_user_id',
+        'locked_at',
+        'lock_reason',
         'name',
         'description',
         'github_repo_full_name',
@@ -31,6 +34,10 @@ class DevPackage extends Model
         'status',
         'icon',
         'order',
+    ];
+
+    protected $casts = [
+        'locked_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -58,6 +65,16 @@ class DevPackage extends Model
     public function userInCharge(): BelongsTo
     {
         return $this->belongsTo(\Platform\Core\Models\User::class, 'user_in_charge_id');
+    }
+
+    public function lockedByUser(): BelongsTo
+    {
+        return $this->belongsTo(\Platform\Core\Models\User::class, 'locked_by_user_id');
+    }
+
+    public function isLocked(): bool
+    {
+        return $this->locked_by_user_id !== null;
     }
 
     public function githubRepo(): BelongsTo

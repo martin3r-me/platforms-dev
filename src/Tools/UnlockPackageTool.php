@@ -10,19 +10,19 @@ use Platform\Core\Tools\Concerns\HasStandardizedWriteOperations;
 use Platform\Dev\Models\DevPackage;
 use Platform\Dev\Tools\Concerns\ResolvesDevTeam;
 
-class UpdatePackageTool implements ToolContract, ToolMetadataContract
+class UnlockPackageTool implements ToolContract, ToolMetadataContract
 {
     use HasStandardizedWriteOperations;
     use ResolvesDevTeam;
 
     public function getName(): string
     {
-        return 'dev.packages.PUT';
+        return 'dev.packages.unlock.POST';
     }
 
     public function getDescription(): string
     {
-        return 'PUT /dev/packages - Aktualisiert ein Package. ERFORDERLICH: package_id. Optional: name, description, icon, github_repo_full_name, user_in_charge_id (null zum Entfernen).';
+        return 'POST /dev/packages/unlock - Entsperrt ein Package. ERFORDERLICH: package_id.';
     }
 
     public function getSchema(): array
@@ -31,11 +31,6 @@ class UpdatePackageTool implements ToolContract, ToolMetadataContract
             'properties' => [
                 'team_id' => ['type' => 'integer', 'description' => 'Optional: Team-ID.'],
                 'package_id' => ['type' => 'integer', 'description' => 'ID des Packages (ERFORDERLICH).'],
-                'name' => ['type' => 'string', 'description' => 'Optional: Neuer Name.'],
-                'description' => ['type' => 'string', 'description' => 'Optional: Neue Beschreibung.'],
-                'icon' => ['type' => 'string', 'description' => 'Optional: Neues Icon.'],
-                'github_repo_full_name' => ['type' => 'string', 'description' => 'Optional: GitHub Repo.'],
-                'user_in_charge_id' => ['type' => ['integer', 'null'], 'description' => 'Optional: Verantwortlicher User-ID (null zum Entfernen).'],
             ],
             'required' => ['package_id'],
         ]);
@@ -59,26 +54,23 @@ class UpdatePackageTool implements ToolContract, ToolMetadataContract
                 return ToolResult::error('NOT_FOUND', 'Package nicht gefunden.');
             }
 
-            $payload = [];
-            foreach (['name', 'description', 'icon', 'github_repo_full_name', 'user_in_charge_id'] as $field) {
-                if (array_key_exists($field, $arguments)) {
-                    $payload[$field] = $arguments[$field];
-                }
+            if (!$package->isLocked()) {
+                return ToolResult::error('NOT_LOCKED', 'Package ist nicht gesperrt.');
             }
 
-            if (empty($payload)) {
-                return ToolResult::error('NO_CHANGE', 'Keine Aenderungen angegeben.');
-            }
-
-            $package->update($payload);
+            $package->update([
+                'locked_by_user_id' => null,
+                'locked_at' => null,
+                'lock_reason' => null,
+            ]);
 
             return ToolResult::success([
                 'id' => $package->id,
                 'name' => $package->name,
-                'message' => "Package '{$package->name}' erfolgreich aktualisiert.",
+                'message' => "Package '{$package->name}' erfolgreich entsperrt.",
             ]);
         } catch (\Throwable $e) {
-            return ToolResult::error('EXECUTION_ERROR', 'Fehler beim Aktualisieren: ' . $e->getMessage());
+            return ToolResult::error('EXECUTION_ERROR', 'Fehler beim Entsperren: ' . $e->getMessage());
         }
     }
 
@@ -86,7 +78,7 @@ class UpdatePackageTool implements ToolContract, ToolMetadataContract
     {
         return [
             'category' => 'action',
-            'tags' => ['dev', 'packages', 'update'],
+            'tags' => ['dev', 'packages', 'unlock'],
             'read_only' => false,
             'requires_auth' => true,
             'requires_team' => true,

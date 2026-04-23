@@ -242,8 +242,32 @@ class Show extends Component
         ]);
     }
 
+    public string $lockReason = '';
+
+    public function lockPackage(): void
+    {
+        $this->package->update([
+            'locked_by_user_id' => Auth::id(),
+            'locked_at' => now(),
+            'lock_reason' => trim($this->lockReason) ?: null,
+        ]);
+        $this->lockReason = '';
+        $this->package->refresh();
+    }
+
+    public function unlockPackage(): void
+    {
+        $this->package->update([
+            'locked_by_user_id' => null,
+            'locked_at' => null,
+            'lock_reason' => null,
+        ]);
+        $this->package->refresh();
+    }
+
     public function render()
     {
+        $this->package->load(['userInCharge', 'lockedByUser']);
         $boards = $this->package->boards()
             ->active()
             ->withCount(['issues as open_issues_count' => fn ($q) => $q->where('status', 'open')])

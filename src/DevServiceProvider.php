@@ -130,6 +130,8 @@ class DevServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Dev\Tools\ActivatePackageTool());
             $registry->register(new \Platform\Dev\Tools\UpdatePackageTool());
             $registry->register(new \Platform\Dev\Tools\DeactivatePackageTool());
+            $registry->register(new \Platform\Dev\Tools\LockPackageTool());
+            $registry->register(new \Platform\Dev\Tools\UnlockPackageTool());
 
             // Board CRUD
             $registry->register(new \Platform\Dev\Tools\ListBoardsTool());
