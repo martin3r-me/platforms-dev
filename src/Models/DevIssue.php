@@ -37,6 +37,11 @@ class DevIssue extends Model
         'is_done',
         'done_at',
         'due_date',
+        'agent_locked_at',
+        'agent_locked_by',
+        'agent_branch',
+        'agent_completed_at',
+        'agent_summary',
     ];
 
     protected $casts = [
@@ -47,6 +52,8 @@ class DevIssue extends Model
         'is_done' => 'boolean',
         'done_at' => 'datetime',
         'due_date' => 'date',
+        'agent_locked_at' => 'datetime',
+        'agent_completed_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -104,6 +111,28 @@ class DevIssue extends Model
     public function scopeInBacklog($query)
     {
         return $query->whereNull('dev_board_slot_id');
+    }
+
+    public function scopeAgentAvailable($query)
+    {
+        return $query->where('status', 'open')
+            ->where('is_done', false)
+            ->where(function ($q) {
+                $q->whereNull('agent_locked_at')
+                  ->orWhere('agent_locked_at', '<', now()->subMinutes(30));
+            });
+    }
+
+    public function scopeAgentLocked($query)
+    {
+        return $query->whereNotNull('agent_locked_at')
+            ->where('agent_locked_at', '>=', now()->subMinutes(30));
+    }
+
+    public function isAgentLocked(): bool
+    {
+        return $this->agent_locked_at !== null
+            && $this->agent_locked_at->greaterThan(now()->subMinutes(30));
     }
 
     public function close(): void
