@@ -77,6 +77,23 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
                     'type' => 'boolean',
                     'description' => 'Optional: Erledigt-Status.',
                 ],
+                'story_points' => [
+                    'type' => 'string',
+                    'enum' => ['xs', 's', 'm', 'l', 'xl', 'xxl'],
+                    'description' => 'Optional: Story Points (T-Shirt Size). xs=1, s=2, m=3, l=5, xl=8, xxl=13. Leerer String entfernt.',
+                ],
+                'acceptance_criteria' => [
+                    'type' => 'array',
+                    'description' => 'Optional: Definition of Done Items (ersetzt komplett).',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'text' => ['type' => 'string', 'description' => 'Kriterium-Text.'],
+                            'done' => ['type' => 'boolean', 'description' => 'Erledigt? Default: false.'],
+                        ],
+                        'required' => ['text'],
+                    ],
+                ],
             ],
             'required' => ['issue_id'],
         ]);
@@ -116,6 +133,17 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
 
             if (array_key_exists('due_date', $arguments)) {
                 $payload['due_date'] = $arguments['due_date'] === '' ? null : $arguments['due_date'];
+            }
+
+            if (array_key_exists('story_points', $arguments)) {
+                $payload['story_points'] = $arguments['story_points'] === '' ? null : $arguments['story_points'];
+            }
+
+            if (array_key_exists('acceptance_criteria', $arguments)) {
+                $payload['acceptance_criteria'] = array_map(fn ($c) => [
+                    'text' => $c['text'] ?? '',
+                    'done' => $c['done'] ?? false,
+                ], $arguments['acceptance_criteria']);
             }
 
             // Handle status changes with automatic is_done/done_at

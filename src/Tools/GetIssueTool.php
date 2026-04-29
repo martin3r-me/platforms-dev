@@ -91,6 +91,10 @@ class GetIssueTool implements ToolContract, ToolMetadataContract
                         'name' => $issue->createdBy->name,
                     ] : null,
                     'labels' => $issue->labels,
+                    'story_points' => $issue->story_points instanceof \BackedEnum ? $issue->story_points->value : $issue->story_points,
+                    'story_points_numeric' => $issue->story_points instanceof \BackedEnum ? $issue->story_points->points() : null,
+                    'acceptance_criteria' => $issue->acceptance_criteria,
+                    'dod_progress' => $this->calculateDodProgress($issue->acceptance_criteria),
                     'order' => $issue->order,
                     'slot_order' => $issue->slot_order,
                     'is_done' => $issue->is_done,
@@ -103,6 +107,20 @@ class GetIssueTool implements ToolContract, ToolMetadataContract
         } catch (\Throwable $e) {
             return ToolResult::error('EXECUTION_ERROR', 'Fehler beim Laden des Issues: ' . $e->getMessage());
         }
+    }
+
+    private function calculateDodProgress(?array $criteria): ?array
+    {
+        if (empty($criteria)) {
+            return null;
+        }
+        $total = count($criteria);
+        $done = count(array_filter($criteria, fn ($c) => $c['done'] ?? false));
+        return [
+            'done' => $done,
+            'total' => $total,
+            'percent' => $total > 0 ? round($done / $total * 100) : 0,
+        ];
     }
 
     public function getMetadata(): array

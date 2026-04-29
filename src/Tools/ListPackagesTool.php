@@ -38,6 +38,10 @@ class ListPackagesTool implements ToolContract, ToolMetadataContract
                     'enum' => ['active', 'archived'],
                     'description' => 'Optional: Nach Status filtern.',
                 ],
+                'module_key' => [
+                    'type' => 'string',
+                    'description' => 'Optional: Modul-Key (z.B. "organization") zum Finden des zugehoerigen Packages. Sucht nach platforms-{key}, platform-{key} und {key}.',
+                ],
             ],
         ]);
     }
@@ -55,6 +59,16 @@ class ListPackagesTool implements ToolContract, ToolMetadataContract
 
             if (!empty($arguments['status'])) {
                 $query->where('status', $arguments['status']);
+            }
+
+            if (!empty($arguments['module_key'])) {
+                $key = $arguments['module_key'];
+                $query->where(function ($q) use ($key) {
+                    $q->where('name', "platforms-{$key}")
+                      ->orWhere('name', "platform-{$key}")
+                      ->orWhere('name', $key)
+                      ->orWhere('name', 'like', "%-{$key}");
+                });
             }
 
             $this->applyStandardSearch($query, $arguments, ['name', 'description', 'github_repo_full_name']);

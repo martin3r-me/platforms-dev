@@ -55,6 +55,15 @@ class ListIssuesTool implements ToolContract, ToolMetadataContract
                     'type' => 'integer',
                     'description' => 'Optional: Nach zustaendigem User filtern.',
                 ],
+                'story_points' => [
+                    'type' => 'string',
+                    'enum' => ['xs', 's', 'm', 'l', 'xl', 'xxl'],
+                    'description' => 'Optional: Nach Story Points filtern.',
+                ],
+                'has_story_points' => [
+                    'type' => 'boolean',
+                    'description' => 'Optional: true = nur Issues mit Story Points, false = nur ohne.',
+                ],
             ],
         ]);
     }
@@ -94,6 +103,18 @@ class ListIssuesTool implements ToolContract, ToolMetadataContract
                 $query->where('user_in_charge_id', (int) $arguments['user_in_charge_id']);
             }
 
+            if (!empty($arguments['story_points'])) {
+                $query->where('story_points', $arguments['story_points']);
+            }
+
+            if (array_key_exists('has_story_points', $arguments)) {
+                if ($arguments['has_story_points']) {
+                    $query->whereNotNull('story_points');
+                } else {
+                    $query->whereNull('story_points');
+                }
+            }
+
             $this->applyStandardSearch($query, $arguments, ['title', 'description']);
             $this->applyStandardSort($query, $arguments, ['title', 'priority', 'status', 'order', 'slot_order', 'created_at', 'updated_at', 'due_date'], 'created_at', 'desc');
 
@@ -109,6 +130,8 @@ class ListIssuesTool implements ToolContract, ToolMetadataContract
                 'dev_board_slot_id' => $issue->dev_board_slot_id,
                 'user_in_charge_id' => $issue->user_in_charge_id,
                 'labels' => $issue->labels,
+                'story_points' => $issue->story_points instanceof \BackedEnum ? $issue->story_points->value : $issue->story_points,
+                'story_points_numeric' => $issue->story_points instanceof \BackedEnum ? $issue->story_points->points() : null,
                 'is_done' => $issue->is_done,
                 'due_date' => $issue->due_date?->toDateString(),
                 'created_at' => $issue->created_at?->toISOString(),

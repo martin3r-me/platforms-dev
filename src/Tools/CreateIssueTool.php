@@ -68,6 +68,23 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
                     'type' => 'string',
                     'description' => 'Optional: Faelligkeitsdatum (YYYY-MM-DD).',
                 ],
+                'story_points' => [
+                    'type' => 'string',
+                    'enum' => ['xs', 's', 'm', 'l', 'xl', 'xxl'],
+                    'description' => 'Optional: Story Points (T-Shirt Size). xs=1, s=2, m=3, l=5, xl=8, xxl=13.',
+                ],
+                'acceptance_criteria' => [
+                    'type' => 'array',
+                    'description' => 'Optional: Definition of Done Items.',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'text' => ['type' => 'string', 'description' => 'Kriterium-Text.'],
+                            'done' => ['type' => 'boolean', 'description' => 'Erledigt? Default: false.'],
+                        ],
+                        'required' => ['text'],
+                    ],
+                ],
             ],
             'required' => ['board_id', 'title'],
         ]);
@@ -116,6 +133,15 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
             }
             if (array_key_exists('due_date', $arguments)) {
                 $data['due_date'] = $arguments['due_date'];
+            }
+            if (array_key_exists('story_points', $arguments)) {
+                $data['story_points'] = $arguments['story_points'];
+            }
+            if (array_key_exists('acceptance_criteria', $arguments)) {
+                $data['acceptance_criteria'] = array_map(fn ($c) => [
+                    'text' => $c['text'] ?? '',
+                    'done' => $c['done'] ?? false,
+                ], $arguments['acceptance_criteria']);
             }
 
             $service = new DevIssueService();

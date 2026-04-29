@@ -97,6 +97,14 @@
                         {{ $issue->due_date->format('d.m.') }}
                     </span>
                 @endif
+
+                {{-- Created At --}}
+                @if($issue->created_at)
+                    <span class="flex items-center gap-0.5 text-gray-400" title="{{ $issue->created_at->format('d.m.Y H:i') }}">
+                        @svg('heroicon-o-clock', 'w-3 h-3')
+                        {{ $issue->created_at->format('d.m.') }}
+                    </span>
+                @endif
             </div>
         </div>
     </div>

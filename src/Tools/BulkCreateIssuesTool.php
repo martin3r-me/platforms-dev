@@ -66,6 +66,23 @@ class BulkCreateIssuesTool implements ToolContract, ToolMetadataContract
                                 'type' => 'string',
                                 'description' => 'Optional: Faelligkeitsdatum (YYYY-MM-DD).',
                             ],
+                            'story_points' => [
+                                'type' => 'string',
+                                'enum' => ['xs', 's', 'm', 'l', 'xl', 'xxl'],
+                                'description' => 'Optional: Story Points.',
+                            ],
+                            'acceptance_criteria' => [
+                                'type' => 'array',
+                                'description' => 'Optional: DoD Items.',
+                                'items' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'text' => ['type' => 'string'],
+                                        'done' => ['type' => 'boolean'],
+                                    ],
+                                    'required' => ['text'],
+                                ],
+                            ],
                         ],
                         'required' => ['title'],
                     ],
@@ -99,7 +116,7 @@ class BulkCreateIssuesTool implements ToolContract, ToolMetadataContract
             }
 
             // Prepare issues data (filter to allowed fields)
-            $allowedFields = ['title', 'description', 'priority', 'labels', 'due_date'];
+            $allowedFields = ['title', 'description', 'priority', 'labels', 'due_date', 'story_points', 'acceptance_criteria'];
             $preparedIssues = [];
             foreach ($issuesData as $issueData) {
                 if (empty($issueData['title'])) {

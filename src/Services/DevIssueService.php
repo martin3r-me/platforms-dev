@@ -28,6 +28,16 @@ class DevIssueService
         return $issue->fresh();
     }
 
+    public function bulkUpdate(array $issues, array $data): int
+    {
+        $count = 0;
+        foreach ($issues as $issue) {
+            $issue->update($data);
+            $count++;
+        }
+        return $count;
+    }
+
     public function bulkCreate(int $boardId, int $teamId, int $userId, array $issues): array
     {
         $created = [];

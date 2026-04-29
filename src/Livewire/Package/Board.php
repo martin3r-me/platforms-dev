@@ -306,9 +306,9 @@ class Board extends Component
 
     public function render()
     {
-        if (!$this->groups || $this->groups->isEmpty()) {
-            $this->loadGroups();
-        }
+        // Always reload groups to ensure dynamic `tasks` property is present
+        // (Livewire hydration strips dynamic properties from Eloquent models)
+        $this->loadGroups();
 
         $openCount = $this->groups
             ->filter(fn ($g) => !($g->isDoneGroup ?? false))

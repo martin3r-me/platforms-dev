@@ -20,7 +20,7 @@ class GetPackageTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'GET /dev/package - Zeigt Details eines Packages mit Boards und Stats. ERFORDERLICH: package_id.';
+        return 'GET /dev/package - Zeigt Details eines Packages mit Boards und Stats. ERFORDERLICH: package_id ODER module_key.';
     }
 
     public function getSchema(): array
@@ -34,10 +34,13 @@ class GetPackageTool implements ToolContract, ToolMetadataContract
                 ],
                 'package_id' => [
                     'type' => 'integer',
-                    'description' => 'ID des Packages (ERFORDERLICH).',
+                    'description' => 'ID des Packages. Erforderlich wenn kein module_key.',
+                ],
+                'module_key' => [
+                    'type' => 'string',
+                    'description' => 'Modul-Key (z.B. "organization", "dev", "planner"). Sucht nach platforms-{key}, platform-{key}.',
                 ],
             ],
-            'required' => ['package_id'],
         ];
     }
 
@@ -51,13 +54,24 @@ class GetPackageTool implements ToolContract, ToolMetadataContract
             $teamId = (int) $resolved['team_id'];
 
             $packageId = $arguments['package_id'] ?? null;
-            if (!$packageId) {
-                return ToolResult::error('VALIDATION_ERROR', 'package_id ist erforderlich.');
+            $moduleKey = $arguments['module_key'] ?? null;
+
+            if (!$packageId && !$moduleKey) {
+                return ToolResult::error('VALIDATION_ERROR', 'package_id oder module_key ist erforderlich.');
             }
 
-            $package = DevPackage::where('team_id', $teamId)
-                ->with(['boards.slots', 'boards' => fn ($q) => $q->withCount('issues'), 'userInCharge', 'lockedByUser'])
-                ->find($packageId);
+            $query = DevPackage::where('team_id', $teamId)
+                ->with(['boards.slots', 'boards' => fn ($q) => $q->withCount('issues'), 'userInCharge', 'lockedByUser']);
+
+            if ($packageId) {
+                $package = $query->find($packageId);
+            } else {
+                $package = $query->where(function ($q) use ($moduleKey) {
+                    $q->where('name', "platforms-{$moduleKey}")
+                      ->orWhere('name', "platform-{$moduleKey}")
+                      ->orWhere('name', $moduleKey);
+                })->first();
+            }
 
             if (!$package) {
                 return ToolResult::error('NOT_FOUND', 'Package nicht gefunden.');
