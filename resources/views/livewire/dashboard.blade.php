@@ -155,7 +155,7 @@
                                wire:navigate
                                class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
                                 <div class="flex-shrink-0 text-gray-400">
-                                    @svg($package->icon ?? 'heroicon-o-cube', 'w-4 h-4')
+                                    @svg(app('safe-svg')->resolve($package->icon) ?? 'heroicon-o-cube', 'w-4 h-4')
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <span class="text-xs font-medium text-blue-600 hover:underline truncate block leading-relaxed">{{ $package->name }}</span>

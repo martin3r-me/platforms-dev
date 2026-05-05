@@ -29,7 +29,7 @@
                 {{-- Package Header --}}
                 <div class="d-flex items-center gap-3">
                     <div class="w-9 h-9 rounded-md bg-gray-100 d-flex items-center justify-center flex-shrink-0 border border-gray-200">
-                        @svg($package->icon ?? 'heroicon-o-cube', 'w-4 h-4 text-gray-600')
+                        @svg(app('safe-svg')->resolve($package->icon) ?? 'heroicon-o-cube', 'w-4 h-4 text-gray-600')
                     </div>
                     <div class="min-w-0">
                         <h3 class="text-xs font-semibold text-gray-900">{{ $package->name }}</h3>

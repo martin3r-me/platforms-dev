@@ -95,7 +95,7 @@
             </a>
             @foreach($activePackages as $package)
                 <a href="{{ route('dev.packages.show', $package) }}" wire:navigate class="relative flex items-center justify-center p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-                    @svg($package->icon ?? 'heroicon-o-cube', 'w-4 h-4')
+                    @svg(app('safe-svg')->resolve($package->icon) ?? 'heroicon-o-cube', 'w-4 h-4')
                     @if(($package->open_bugs_count ?? 0) > 0)
                         <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white"></span>
                     @endif
