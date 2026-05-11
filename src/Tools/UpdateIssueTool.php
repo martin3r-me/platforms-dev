@@ -23,7 +23,7 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'PUT /dev/issues/{id} - Aktualisiert ein Issue. Parameter: issue_id (required). Optional: title, description, priority, status, dev_board_slot_id, labels, user_in_charge_id, due_date, is_done.';
+        return 'PUT /dev/issues/{id} - Aktualisiert ein Issue. Parameter: issue_id (required). Optional: title, description, priority, status, dev_board_slot_id, labels, user_in_charge_id, due_date, is_done, story_points, dod_items, dod_items_update.';
     }
 
     public function getSchema(): array
@@ -77,6 +77,75 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
                     'type' => 'boolean',
                     'description' => 'Optional: Erledigt-Status.',
                 ],
+                'story_points' => [
+                    'type' => 'string',
+                    'enum' => ['xs', 's', 'm', 'l', 'xl', 'xxl'],
+                    'description' => 'Optional: Story Points (T-Shirt Sizes: xs=1, s=2, m=3, l=5, xl=8, xxl=13). Leerer String entfernt.',
+                ],
+                'dod_items' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'text' => ['type' => 'string', 'description' => 'Text des DOD-Kriteriums.'],
+                            'checked' => ['type' => 'boolean', 'description' => 'Erledigt-Status. Default: false.'],
+                        ],
+                        'required' => ['text'],
+                    ],
+                    'description' => 'Optional: DOD-Kriterien komplett überschreiben. Array von {text, checked?}.',
+                ],
+                'dod_items_update' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'toggle' => [
+                            'type' => 'array',
+                            'items' => ['type' => 'integer'],
+                            'description' => 'Indices der Items, deren checked-Status getoggelt wird.',
+                        ],
+                        'set_checked' => [
+                            'type' => 'array',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'index' => ['type' => 'integer'],
+                                    'checked' => ['type' => 'boolean'],
+                                ],
+                                'required' => ['index', 'checked'],
+                            ],
+                            'description' => 'Checked-Status explizit setzen.',
+                        ],
+                        'add' => [
+                            'type' => 'array',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'text' => ['type' => 'string'],
+                                    'checked' => ['type' => 'boolean'],
+                                ],
+                                'required' => ['text'],
+                            ],
+                            'description' => 'Neue Items hinzufügen.',
+                        ],
+                        'remove' => [
+                            'type' => 'array',
+                            'items' => ['type' => 'integer'],
+                            'description' => 'Items an diesen Indices entfernen.',
+                        ],
+                        'update_text' => [
+                            'type' => 'array',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'index' => ['type' => 'integer'],
+                                    'text' => ['type' => 'string'],
+                                ],
+                                'required' => ['index', 'text'],
+                            ],
+                            'description' => 'Text von Items aktualisieren.',
+                        ],
+                    ],
+                    'description' => 'Optional: Granulare DOD-Updates (toggle, set_checked, add, remove, update_text). Hat Priorität über dod_items.',
+                ],
             ],
             'required' => ['issue_id'],
         ]);
@@ -114,6 +183,12 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
                 $payload['labels'] = $arguments['labels'];
             }
 
+            // Story Points
+            if (array_key_exists('story_points', $arguments)) {
+                $sp = $arguments['story_points'];
+                $payload['story_points'] = ($sp === '' || $sp === null) ? null : strtolower($sp);
+            }
+
             if (array_key_exists('due_date', $arguments)) {
                 $payload['due_date'] = $arguments['due_date'] === '' ? null : $arguments['due_date'];
             }
@@ -137,6 +212,67 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
                 }
             }
 
+            // DOD / Acceptance Criteria
+            if (!empty($arguments['dod_items_update'])) {
+                $criteria = $issue->acceptance_criteria ?? [];
+                $ops = $arguments['dod_items_update'];
+
+                // Toggle
+                if (!empty($ops['toggle'])) {
+                    foreach ($ops['toggle'] as $idx) {
+                        if (isset($criteria[$idx])) {
+                            $criteria[$idx]['checked'] = !($criteria[$idx]['checked'] ?? false);
+                        }
+                    }
+                }
+
+                // Set checked
+                if (!empty($ops['set_checked'])) {
+                    foreach ($ops['set_checked'] as $item) {
+                        $idx = $item['index'];
+                        if (isset($criteria[$idx])) {
+                            $criteria[$idx]['checked'] = (bool) $item['checked'];
+                        }
+                    }
+                }
+
+                // Add
+                if (!empty($ops['add'])) {
+                    foreach ($ops['add'] as $item) {
+                        $criteria[] = [
+                            'text' => $item['text'],
+                            'checked' => (bool) ($item['checked'] ?? false),
+                        ];
+                    }
+                }
+
+                // Remove (descending to preserve indices)
+                if (!empty($ops['remove'])) {
+                    $removeIndices = $ops['remove'];
+                    rsort($removeIndices);
+                    foreach ($removeIndices as $idx) {
+                        array_splice($criteria, $idx, 1);
+                    }
+                }
+
+                // Update text
+                if (!empty($ops['update_text'])) {
+                    foreach ($ops['update_text'] as $item) {
+                        $idx = $item['index'];
+                        if (isset($criteria[$idx])) {
+                            $criteria[$idx]['text'] = $item['text'];
+                        }
+                    }
+                }
+
+                $payload['acceptance_criteria'] = array_values($criteria);
+            } elseif (array_key_exists('dod_items', $arguments)) {
+                $payload['acceptance_criteria'] = collect($arguments['dod_items'])->map(fn($item) => [
+                    'text' => $item['text'],
+                    'checked' => (bool) ($item['checked'] ?? false),
+                ])->toArray();
+            }
+
             $service = new DevIssueService();
             $issue = $service->updateIssue($issue, $payload);
 
@@ -150,6 +286,10 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
                     'dev_board_id' => $issue->dev_board_id,
                     'dev_board_slot_id' => $issue->dev_board_slot_id,
                     'is_done' => $issue->is_done,
+                    'story_points' => $issue->story_points?->value,
+                    'story_points_label' => $issue->story_points?->label(),
+                    'story_points_numeric' => $issue->story_points?->points(),
+                    'acceptance_criteria' => $issue->acceptance_criteria,
                 ],
                 'message' => 'Issue erfolgreich aktualisiert.',
             ]);
