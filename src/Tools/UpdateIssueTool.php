@@ -23,7 +23,7 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'PUT /dev/issues/{id} - Aktualisiert ein Issue. Parameter: issue_id (required). Optional: title, description, priority, status, dev_board_slot_id, labels, user_in_charge_id, due_date, is_done, story_points, dod_items, dod_items_update.';
+        return 'PUT /dev/issues/{id} - Aktualisiert ein Issue. Parameter: issue_id (required). Optional: title, description (NICHT "content"), priority, status, dev_board_slot_id, labels, user_in_charge_id, due_date, is_done, story_points (xs/s/m/l/xl/xxl), dod_items (Array von {text, checked?} — NICHT "acceptance_criteria"), dod_items_update (granulare DOD-Ops).';
     }
 
     public function getSchema(): array
@@ -151,9 +151,58 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
         ]);
     }
 
+    /**
+     * Known parameter aliases: maps common wrong names to correct ones.
+     */
+    private const PARAMETER_ALIASES = [
+        'content' => 'description',
+        'acceptance_criteria' => 'dod_items',
+    ];
+
+    /**
+     * All known parameter names for this tool.
+     */
+    private const KNOWN_PARAMETERS = [
+        'team_id', 'issue_id', 'title', 'description', 'priority', 'status',
+        'dev_board_slot_id', 'labels', 'user_in_charge_id', 'due_date',
+        'is_done', 'story_points', 'dod_items', 'dod_items_update',
+        // Aliases (resolved before execution)
+        'content', 'acceptance_criteria',
+        // Internal/meta fields
+        '_write_confirmation',
+    ];
+
+    private function resolveAliasesAndWarn(array &$arguments): array
+    {
+        $warnings = [];
+
+        // Resolve aliases
+        foreach (self::PARAMETER_ALIASES as $alias => $canonical) {
+            if (array_key_exists($alias, $arguments) && !array_key_exists($canonical, $arguments)) {
+                $arguments[$canonical] = $arguments[$alias];
+                unset($arguments[$alias]);
+                $warnings[] = "Parameter '{$alias}' wurde automatisch auf '{$canonical}' gemappt. Bitte direkt '{$canonical}' verwenden.";
+            } elseif (array_key_exists($alias, $arguments) && array_key_exists($canonical, $arguments)) {
+                unset($arguments[$alias]);
+                $warnings[] = "Parameter '{$alias}' ignoriert, da '{$canonical}' bereits gesetzt ist. Nutze nur '{$canonical}'.";
+            }
+        }
+
+        // Detect unknown parameters
+        $unknown = array_diff(array_keys($arguments), self::KNOWN_PARAMETERS);
+        if (!empty($unknown)) {
+            $knownList = implode(', ', array_diff(self::KNOWN_PARAMETERS, ['_write_confirmation', 'content', 'acceptance_criteria']));
+            $warnings[] = 'Unbekannte Parameter ignoriert: ' . implode(', ', $unknown) . '. Erlaubte Parameter: ' . $knownList . '.';
+        }
+
+        return $warnings;
+    }
+
     public function execute(array $arguments, ToolContext $context): ToolResult
     {
         try {
+            $warnings = $this->resolveAliasesAndWarn($arguments);
+
             $resolved = $this->resolveTeam($arguments, $context);
             if ($resolved['error']) {
                 return $resolved['error'];
@@ -276,7 +325,7 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
             $service = new DevIssueService();
             $issue = $service->updateIssue($issue, $payload);
 
-            return ToolResult::success([
+            $result = [
                 'issue' => [
                     'id' => $issue->id,
                     'uuid' => $issue->uuid,
@@ -292,7 +341,13 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
                     'acceptance_criteria' => $issue->acceptance_criteria,
                 ],
                 'message' => 'Issue erfolgreich aktualisiert.',
-            ]);
+            ];
+
+            if (!empty($warnings)) {
+                $result['warnings'] = $warnings;
+            }
+
+            return ToolResult::success($result);
         } catch (\Throwable $e) {
             return ToolResult::error('EXECUTION_ERROR', 'Fehler beim Aktualisieren des Issues: ' . $e->getMessage());
         }

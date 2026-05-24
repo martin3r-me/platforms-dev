@@ -23,7 +23,7 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'POST /dev/issues - Erstellt ein neues Issue. Parameter: board_id (required), title (required). Optional: description, priority, dev_board_slot_id, labels, user_in_charge_id, due_date.';
+        return 'POST /dev/issues - Erstellt ein neues Issue. Parameter: board_id (required), title (required). Optional: description (Freitext-Beschreibung), priority (low/normal/high), dev_board_slot_id, labels, user_in_charge_id, due_date. HINWEIS: Für Beschreibung "description" verwenden (NICHT "content"). Acceptance Criteria / DOD können nur via dev.issues.PUT gesetzt werden (Parameter: dod_items).';
     }
 
     public function getSchema(): array
@@ -73,9 +73,61 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
         ]);
     }
 
+    /**
+     * Known parameter aliases: maps common wrong names to correct ones.
+     */
+    private const PARAMETER_ALIASES = [
+        'content' => 'description',
+    ];
+
+    /**
+     * All known parameter names for this tool.
+     */
+    private const KNOWN_PARAMETERS = [
+        'team_id', 'board_id', 'title', 'description', 'priority',
+        'dev_board_slot_id', 'labels', 'user_in_charge_id', 'due_date',
+        // Aliases (resolved before execution)
+        'content',
+        // Internal/meta fields
+        '_write_confirmation',
+    ];
+
+    private function resolveAliasesAndWarn(array &$arguments): array
+    {
+        $warnings = [];
+
+        // Resolve aliases
+        foreach (self::PARAMETER_ALIASES as $alias => $canonical) {
+            if (array_key_exists($alias, $arguments) && !array_key_exists($canonical, $arguments)) {
+                $arguments[$canonical] = $arguments[$alias];
+                unset($arguments[$alias]);
+                $warnings[] = "Parameter '{$alias}' wurde automatisch auf '{$canonical}' gemappt. Bitte direkt '{$canonical}' verwenden.";
+            }
+        }
+
+        // Detect unknown parameters
+        $unknown = array_diff(array_keys($arguments), self::KNOWN_PARAMETERS);
+        if (!empty($unknown)) {
+            $knownList = implode(', ', array_diff(self::KNOWN_PARAMETERS, ['_write_confirmation', 'content']));
+            $warnings[] = 'Unbekannte Parameter ignoriert: ' . implode(', ', $unknown) . '. Erlaubte Parameter: ' . $knownList . '.';
+
+            // Specific hints for common mistakes
+            if (in_array('acceptance_criteria', $unknown) || in_array('dod_items', $unknown)) {
+                $warnings[] = 'HINWEIS: DOD/Acceptance Criteria können bei POST nicht gesetzt werden. Nutze dev.issues.PUT mit Parameter "dod_items" nach dem Erstellen.';
+            }
+            if (in_array('story_points', $unknown)) {
+                $warnings[] = 'HINWEIS: Story Points können bei POST nicht gesetzt werden. Nutze dev.issues.PUT mit Parameter "story_points" nach dem Erstellen.';
+            }
+        }
+
+        return $warnings;
+    }
+
     public function execute(array $arguments, ToolContext $context): ToolResult
     {
         try {
+            $warnings = $this->resolveAliasesAndWarn($arguments);
+
             $resolved = $this->resolveTeam($arguments, $context);
             if ($resolved['error']) {
                 return $resolved['error'];
@@ -121,7 +173,7 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
             $service = new DevIssueService();
             $issue = $service->createIssue($data);
 
-            return ToolResult::success([
+            $result = [
                 'issue' => [
                     'id' => $issue->id,
                     'uuid' => $issue->uuid,
@@ -132,7 +184,13 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
                     'dev_board_slot_id' => $issue->dev_board_slot_id,
                 ],
                 'message' => 'Issue erfolgreich erstellt.',
-            ]);
+            ];
+
+            if (!empty($warnings)) {
+                $result['warnings'] = $warnings;
+            }
+
+            return ToolResult::success($result);
         } catch (\Throwable $e) {
             return ToolResult::error('EXECUTION_ERROR', 'Fehler beim Erstellen des Issues: ' . $e->getMessage());
         }
