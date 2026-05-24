@@ -23,7 +23,7 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'POST /dev/issues - Erstellt ein neues Issue. Parameter: board_id (required), title (required). Optional: description (Freitext-Beschreibung), priority (low/normal/high), dev_board_slot_id, labels, user_in_charge_id, due_date. HINWEIS: Für Beschreibung "description" verwenden (NICHT "content"). Acceptance Criteria / DOD können nur via dev.issues.PUT gesetzt werden (Parameter: dod_items).';
+        return 'POST /dev/issues - Erstellt ein neues Issue. Parameter: board_id (required), title (required). Optional: description (NICHT "content"), priority (low/normal/high), dev_board_slot_id, labels, user_in_charge_id, due_date, story_points (xs/s/m/l/xl/xxl), dod_items (Array von {text, checked?} — NICHT "acceptance_criteria").';
     }
 
     public function getSchema(): array
@@ -68,6 +68,23 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
                     'type' => 'string',
                     'description' => 'Optional: Faelligkeitsdatum (YYYY-MM-DD).',
                 ],
+                'story_points' => [
+                    'type' => 'string',
+                    'enum' => ['xs', 's', 'm', 'l', 'xl', 'xxl'],
+                    'description' => 'Optional: Story Points (T-Shirt Sizes: xs=1, s=2, m=3, l=5, xl=8, xxl=13).',
+                ],
+                'dod_items' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'text' => ['type' => 'string', 'description' => 'Text des DOD-Kriteriums.'],
+                            'checked' => ['type' => 'boolean', 'description' => 'Erledigt-Status. Default: false.'],
+                        ],
+                        'required' => ['text'],
+                    ],
+                    'description' => 'Optional: DOD-Kriterien (Definition of Done). Array von {text, checked?}.',
+                ],
             ],
             'required' => ['board_id', 'title'],
         ]);
@@ -78,6 +95,7 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
      */
     private const PARAMETER_ALIASES = [
         'content' => 'description',
+        'acceptance_criteria' => 'dod_items',
     ];
 
     /**
@@ -86,8 +104,9 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
     private const KNOWN_PARAMETERS = [
         'team_id', 'board_id', 'title', 'description', 'priority',
         'dev_board_slot_id', 'labels', 'user_in_charge_id', 'due_date',
+        'story_points', 'dod_items',
         // Aliases (resolved before execution)
-        'content',
+        'content', 'acceptance_criteria',
         // Internal/meta fields
         '_write_confirmation',
     ];
@@ -108,16 +127,8 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
         // Detect unknown parameters
         $unknown = array_diff(array_keys($arguments), self::KNOWN_PARAMETERS);
         if (!empty($unknown)) {
-            $knownList = implode(', ', array_diff(self::KNOWN_PARAMETERS, ['_write_confirmation', 'content']));
+            $knownList = implode(', ', array_diff(self::KNOWN_PARAMETERS, ['_write_confirmation', 'content', 'acceptance_criteria']));
             $warnings[] = 'Unbekannte Parameter ignoriert: ' . implode(', ', $unknown) . '. Erlaubte Parameter: ' . $knownList . '.';
-
-            // Specific hints for common mistakes
-            if (in_array('acceptance_criteria', $unknown) || in_array('dod_items', $unknown)) {
-                $warnings[] = 'HINWEIS: DOD/Acceptance Criteria können bei POST nicht gesetzt werden. Nutze dev.issues.PUT mit Parameter "dod_items" nach dem Erstellen.';
-            }
-            if (in_array('story_points', $unknown)) {
-                $warnings[] = 'HINWEIS: Story Points können bei POST nicht gesetzt werden. Nutze dev.issues.PUT mit Parameter "story_points" nach dem Erstellen.';
-            }
         }
 
         return $warnings;
@@ -169,6 +180,16 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
             if (array_key_exists('due_date', $arguments)) {
                 $data['due_date'] = $arguments['due_date'];
             }
+            if (array_key_exists('story_points', $arguments)) {
+                $sp = $arguments['story_points'];
+                $data['story_points'] = ($sp === '' || $sp === null) ? null : strtolower($sp);
+            }
+            if (array_key_exists('dod_items', $arguments)) {
+                $data['acceptance_criteria'] = collect($arguments['dod_items'])->map(fn($item) => [
+                    'text' => $item['text'],
+                    'checked' => (bool) ($item['checked'] ?? false),
+                ])->toArray();
+            }
 
             $service = new DevIssueService();
             $issue = $service->createIssue($data);
@@ -182,6 +203,10 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
                     'status' => $issue->status,
                     'dev_board_id' => $issue->dev_board_id,
                     'dev_board_slot_id' => $issue->dev_board_slot_id,
+                    'story_points' => $issue->story_points?->value,
+                    'story_points_label' => $issue->story_points?->label(),
+                    'story_points_numeric' => $issue->story_points?->points(),
+                    'acceptance_criteria' => $issue->acceptance_criteria,
                 ],
                 'message' => 'Issue erfolgreich erstellt.',
             ];
