@@ -9,11 +9,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Platform\ActivityLog\Traits\LogsActivity;
 use Platform\Core\Models\Concerns\HasEntityLinks;
 use Platform\Core\Traits\HasTags;
+use Platform\Organization\Contracts\HasChildContextRelations;
 use Platform\Organization\Traits\HasTimeEntries;
 use Platform\Organization\Traits\HasOrganizationContexts;
 use Symfony\Component\Uid\UuidV7;
 
-class DevPackage extends Model
+class DevPackage extends Model implements HasChildContextRelations
 {
     use SoftDeletes, LogsActivity, HasEntityLinks, HasTags, HasTimeEntries, HasOrganizationContexts;
 
@@ -115,5 +116,12 @@ class DevPackage extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
+    }
+
+    // ── HasChildContextRelations ─────────────────────────────
+
+    public static function childContextRelations(): array
+    {
+        return ['boards.issues'];
     }
 }
