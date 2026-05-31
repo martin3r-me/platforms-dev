@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Platform\Dev\Models\DevDocPage;
 use Platform\Dev\Models\DevErrorOccurrence;
 use Platform\Dev\Models\DevIssue;
+use Platform\Dev\Models\DevPackage;
 use Platform\Organization\Contracts\EntityLinkProvider;
 use Platform\Organization\Contracts\HasMetricDefinitions;
 use Platform\Organization\Contracts\HasPersonMetrics;
@@ -71,7 +72,10 @@ class DevEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions,
 
     public function timeTrackableCascades(): array
     {
-        return [];
+        return [
+            'dev_package' => [DevPackage::class, ['boards.issues']],
+            'dev_issue'   => [DevIssue::class, []],
+        ];
     }
 
     public function activityChildren(string $morphAlias, array $linkableIds): array

@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Platform\Dev\Enums\BoardType;
+use Platform\Organization\Traits\HasTimeEntries;
 use Symfony\Component\Uid\UuidV7;
 
 class DevBoard extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, HasTimeEntries;
 
     protected $table = 'dev_boards';
 
