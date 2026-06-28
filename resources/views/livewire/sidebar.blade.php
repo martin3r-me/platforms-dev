@@ -13,6 +13,10 @@
             <svg class="w-4 h-4 text-gray-500 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 1.75a.25.25 0 0 1 .25-.25h2.5a.25.25 0 0 1 .25.25v11.5a.25.25 0 0 1-.25.25h-2.5a.25.25 0 0 1-.25-.25Zm-4 4a.25.25 0 0 1 .25-.25h2.5a.25.25 0 0 1 .25.25v7.5a.25.25 0 0 1-.25.25h-2.5a.25.25 0 0 1-.25-.25Zm8-2a.25.25 0 0 1 .25-.25h2.5a.25.25 0 0 1 .25.25v9.5a.25.25 0 0 1-.25.25h-2.5a.25.25 0 0 1-.25-.25Z"/></svg>
             <span class="ml-2 text-xs text-gray-700">Overview</span>
         </x-ui-sidebar-item>
+        <x-ui-sidebar-item :href="route('dev.health-index')">
+            @svg('heroicon-o-heart', 'w-4 h-4 text-gray-500 flex-shrink-0')
+            <span class="ml-2 text-xs text-gray-700">Health-Index</span>
+        </x-ui-sidebar-item>
     </x-ui-sidebar-list>
 
     {{-- Active Packages (Expandable) --}}

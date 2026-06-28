@@ -365,6 +365,9 @@ class Show extends Component
             'errorOccurrences' => $errorOccurrences,
             'errorSettingsEnabled' => $errorSettings?->enabled ?? false,
             'docPageCount' => $docPageCount,
+            'latestSnapshot' => \Platform\Dev\Models\DevPackageSnapshot::where('dev_package_id', $this->package->id)
+                ->orderByDesc('taken_on')
+                ->first(),
         ])->layout('platform::layouts.app');
     }
 }
