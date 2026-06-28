@@ -18,6 +18,20 @@ class DevServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/dev.php', 'dev');
 
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \Platform\Dev\Console\Commands\BuildPackageSnapshotsCommand::class,
+            ]);
+
+            // Scheduler: nightly Package-Snapshots
+            $this->app->afterResolving(\Illuminate\Console\Scheduling\Schedule::class, function (\Illuminate\Console\Scheduling\Schedule $schedule) {
+                $schedule->command('dev:build-package-snapshots --trigger=cron')
+                    ->dailyAt('03:30')
+                    ->withoutOverlapping()
+                    ->runInBackground()
+                    ->appendOutputTo(storage_path('logs/dev-snapshots.log'));
+            });
+        }
     }
 
     public function boot(): void
@@ -166,6 +180,11 @@ class DevServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Dev\Tools\DeleteDocPageTool());
             $registry->register(new \Platform\Dev\Tools\ListDocRevisionsTool());
             $registry->register(new \Platform\Dev\Tools\RestoreDocRevisionTool());
+
+            // Package-Snapshots (Health-Pipeline)
+            $registry->register(new \Platform\Dev\Tools\GetPackageSnapshotTool());
+            $registry->register(new \Platform\Dev\Tools\GetPackageSnapshotTrendTool());
+            $registry->register(new \Platform\Dev\Tools\ListPackageSnapshotsSummaryTool());
         } catch (\Throwable $e) {
             \Log::warning('Dev: Tool-Registrierung fehlgeschlagen', ['error' => $e->getMessage()]);
         }
