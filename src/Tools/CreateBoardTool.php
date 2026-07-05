@@ -44,8 +44,8 @@ class CreateBoardTool implements ToolContract, ToolMetadataContract
                 ],
                 'type' => [
                     'type' => 'string',
-                    'enum' => ['feature', 'bug', 'custom'],
-                    'description' => 'Optional: Board-Typ (feature, bug, custom). Default: custom.',
+                    'enum' => ['feature', 'bug', 'custom', 'inbox'],
+                    'description' => 'Optional: Board-Typ (feature, bug, custom, inbox). Default: custom.',
                 ],
                 'description' => [
                     'type' => 'string',

@@ -42,8 +42,8 @@ class ListBoardsTool implements ToolContract, ToolMetadataContract
                     ],
                     'type' => [
                         'type' => 'string',
-                        'enum' => ['feature', 'bug', 'custom'],
-                        'description' => 'Optional: Filter nach Board-Typ (feature, bug, custom).',
+                        'enum' => ['feature', 'bug', 'custom', 'inbox'],
+                        'description' => 'Optional: Filter nach Board-Typ (feature, bug, custom, inbox).',
                     ],
                 ],
                 'required' => ['package_id'],

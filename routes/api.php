@@ -2,7 +2,13 @@
 
 use Platform\Dev\Http\Controllers\AgentController;
 use Platform\Dev\Http\Controllers\ErrorIngestController;
+use Platform\Dev\Http\Controllers\IngestController;
 
+// Generic ingest endpoint — dispatches by payload `type` (error | feature).
+Route::post('/dev/ingest/{token}', [IngestController::class, 'ingest'])
+    ->name('dev.api.ingest');
+
+// Backwards-compatible alias — always handled as an error report.
 Route::post('/dev/errors/ingest/{token}', [ErrorIngestController::class, 'ingest'])
     ->name('dev.api.errors.ingest');
 

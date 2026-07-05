@@ -88,6 +88,15 @@ class DevPackage extends Model implements HasChildContextRelations
         return $this->hasMany(DevBoard::class, 'dev_package_id')->orderBy('order');
     }
 
+    /**
+     * The board where incoming feature requests land. Null if the package has
+     * no inbox board yet (created lazily via DevPackageService).
+     */
+    public function inboxBoard(): ?DevBoard
+    {
+        return $this->boards()->where('type', 'inbox')->first();
+    }
+
     public function discussions(): HasMany
     {
         return $this->hasMany(DevDiscussion::class, 'dev_package_id')->orderByDesc('is_pinned')->orderByDesc('updated_at');

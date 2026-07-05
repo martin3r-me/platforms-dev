@@ -7,6 +7,7 @@ enum BoardType: string
     case Feature = 'feature';
     case Bug = 'bug';
     case Custom = 'custom';
+    case Inbox = 'inbox';
 
     public function label(): string
     {
@@ -14,6 +15,7 @@ enum BoardType: string
             self::Feature => 'Features',
             self::Bug => 'Bugs',
             self::Custom => 'Custom',
+            self::Inbox => 'Inbox',
         };
     }
 }
