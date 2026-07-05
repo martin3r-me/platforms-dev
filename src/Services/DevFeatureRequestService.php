@@ -28,6 +28,41 @@ class DevFeatureRequestService
     }
 
     /**
+     * Resolve the package for a platform module within a team. Prefers the
+     * explicit module_key mapping; falls back to loose name matching for
+     * packages that have not been mapped yet.
+     */
+    public function resolveForModule(int $teamId, ?string $moduleKey): ?DevPackage
+    {
+        if (!$moduleKey) {
+            return null;
+        }
+
+        $mapped = DevPackage::where('team_id', $teamId)
+            ->where('module_key', $moduleKey)
+            ->first();
+
+        return $mapped ?? $this->resolvePackageByKey($teamId, $moduleKey);
+    }
+
+    /**
+     * Persist the explicit mapping of a package to a platform module. Clears the
+     * mapping from any other package in the team that currently claims the same
+     * module, so a module always points to exactly one package.
+     */
+    public function mapModule(DevPackage $package, string $moduleKey): DevPackage
+    {
+        DevPackage::where('team_id', $package->team_id)
+            ->where('module_key', $moduleKey)
+            ->where('id', '!=', $package->id)
+            ->update(['module_key' => null]);
+
+        $package->update(['module_key' => $moduleKey]);
+
+        return $package->refresh();
+    }
+
+    /**
      * Resolve a DevPackage by a loose key (module key or package name) within a
      * team. Tries exact name, prefix-stripped name, and kebab suffix.
      */

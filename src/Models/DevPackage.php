@@ -29,6 +29,7 @@ class DevPackage extends Model implements HasChildContextRelations
         'locked_at',
         'lock_reason',
         'name',
+        'module_key',
         'description',
         'github_repo_full_name',
         'github_repo_id',
