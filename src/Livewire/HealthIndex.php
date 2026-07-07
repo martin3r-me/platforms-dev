@@ -34,6 +34,7 @@ class HealthIndex extends Component
             ->pluck('a.id');
 
         $all = DevPackageSnapshot::with('package:id,name')
+            ->whereHas('package') // schliesst soft-deletete Packages aus (Karteileichen-Geister)
             ->whereIn('id', $latestIds)
             ->get();
 
