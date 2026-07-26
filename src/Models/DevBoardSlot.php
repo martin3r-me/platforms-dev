@@ -22,6 +22,11 @@ class DevBoardSlot extends Model
         'name',
         'description',
         'order',
+        'agent_role',
+    ];
+
+    protected $casts = [
+        'agent_role' => \Platform\Dev\Enums\SlotAgentRole::class,
     ];
 
     protected static function booted(): void

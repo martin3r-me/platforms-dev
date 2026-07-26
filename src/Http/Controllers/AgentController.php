@@ -31,19 +31,25 @@ class AgentController extends Controller
             return response()->json(['message' => 'Package not released for agent'], 403);
         }
 
-        // Find next open, unlocked issue on feature/bug boards (not backlog).
-        // Order: slot position (board column order), then issue order within slot.
+        // Nächstes claimbares Issue bestimmen:
+        //  - nur agent-freigegebene bug/feature-Boards des Packages (per-Board-Flag)
+        //  - nur aus "Ready"-Slots (is_agent_ready) — nie In Progress/Review/Done/Backlog
+        //  - offen, nicht erledigt, nicht (frisch) gesperrt
+        // Priorität: Bugs vor Features -> Board-Reihenfolge -> Slot -> Issue.
         $query = DevIssue::query()
-            ->whereHas('board', fn ($q) => $q
-                ->where('dev_package_id', $package->id)
-                ->whereIn('type', ['feature', 'bug'])
-            )
-            ->whereNotNull('dev_board_slot_id') // not in backlog
-            ->where('status', 'open')
-            ->where('is_done', false)
+            ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
+            ->join('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
+            ->whereNull('dev_boards.deleted_at')
+            ->whereNull('dev_board_slots.deleted_at')
+            ->where('dev_boards.dev_package_id', $package->id)
+            ->whereIn('dev_boards.type', ['bug', 'feature'])
+            ->where('dev_boards.agent_enabled', true)
+            ->where('dev_board_slots.agent_role', 'ready')
+            ->where('dev_issues.status', 'open')
+            ->where('dev_issues.is_done', false)
             ->where(function ($q) {
-                $q->whereNull('agent_locked_at')
-                  ->orWhere('agent_locked_at', '<', now()->subMinutes(30));
+                $q->whereNull('dev_issues.agent_locked_at')
+                  ->orWhere('dev_issues.agent_locked_at', '<', now()->subMinutes(30));
             });
 
         // Filter by max story points (worker sends this from local config)
@@ -54,15 +60,16 @@ class AgentController extends Controller
                 ->pluck('value')
                 ->all();
             $query->where(function ($q) use ($allowed) {
-                $q->whereNull('story_points')
-                  ->orWhereIn('story_points', $allowed);
+                $q->whereNull('dev_issues.story_points')
+                  ->orWhereIn('dev_issues.story_points', $allowed);
             });
         }
 
         $issue = $query
-            ->join('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
-            ->orderBy('dev_board_slots.order')  // slot position on board
-            ->orderBy('dev_issues.slot_order')  // issue position within slot
+            ->orderByRaw("CASE dev_boards.type WHEN 'bug' THEN 0 WHEN 'feature' THEN 1 ELSE 2 END")
+            ->orderBy('dev_boards.order')       // Board-Reihenfolge (bei mehreren Boards gleichen Typs)
+            ->orderBy('dev_board_slots.order')  // Slot-Position
+            ->orderBy('dev_issues.slot_order')  // Issue-Position im Slot
             ->select('dev_issues.*')
             ->first();
 

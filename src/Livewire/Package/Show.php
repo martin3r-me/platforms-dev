@@ -79,6 +79,40 @@ class Show extends Component
     public string $newBoardName = '';
     public string $newBoardDescription = '';
 
+    // Board-Worker-Settings (agent_enabled + Slot-Rollen)
+    public bool $showBoardSettingsModal = false;
+    public ?int $settingsBoardId = null;
+    public bool $settingsBoardAgentEnabled = false;
+    public array $settingsSlots = [];       // [['id'=>, 'name'=>], ...]
+    public array $settingsSlotRoles = [];    // [slotId => role|'']
+
+    public function openBoardSettings(int $boardId): void
+    {
+        $board = DevBoard::with('slots')->where('dev_package_id', $this->package->id)->find($boardId);
+        if (! $board) {
+            return;
+        }
+        $this->settingsBoardId = $board->id;
+        $this->settingsBoardAgentEnabled = (bool) $board->agent_enabled;
+        $this->settingsSlots = $board->slots->map(fn ($s) => ['id' => $s->id, 'name' => $s->name])->all();
+        $this->settingsSlotRoles = $board->slots->mapWithKeys(fn ($s) => [$s->id => $s->agent_role?->value ?? ''])->all();
+        $this->showBoardSettingsModal = true;
+    }
+
+    public function saveBoardSettings(): void
+    {
+        $board = DevBoard::with('slots')->where('dev_package_id', $this->package->id)->find($this->settingsBoardId);
+        if (! $board) {
+            return;
+        }
+        $board->update(['agent_enabled' => $this->settingsBoardAgentEnabled]);
+        foreach ($board->slots as $slot) {
+            $role = $this->settingsSlotRoles[$slot->id] ?? '';
+            $slot->update(['agent_role' => $role !== '' ? $role : null]);
+        }
+        $this->showBoardSettingsModal = false;
+    }
+
     public function createBoard(): void
     {
         $name = trim($this->newBoardName);

@@ -26,10 +26,12 @@ class DevBoard extends Model
         'description',
         'order',
         'status',
+        'agent_enabled',
     ];
 
     protected $casts = [
         'type' => BoardType::class,
+        'agent_enabled' => 'boolean',
     ];
 
     protected static function booted(): void
