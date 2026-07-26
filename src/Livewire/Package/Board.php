@@ -306,6 +306,10 @@ class Board extends Component
 
     public function render()
     {
+        // Gruppen bei jedem Render frisch aufbauen: die dynamischen `tasks`-
+        // Attribute überleben die Livewire-Hydration nicht, sonst count() auf null.
+        $this->loadGroups();
+
         $openCount = $this->groups
             ->filter(fn ($g) => !($g->isDoneGroup ?? false))
             ->sum(fn ($g) => $g->tasks->count());
