@@ -92,6 +92,8 @@ class AgentController extends Controller
                 'acceptance_criteria' => $issue->acceptance_criteria,
                 'dev_board_id' => $issue->dev_board_id,
                 'dev_package_id' => $package->id,
+                'package_name' => $package->name,
+                'github_repo' => $package->github_repo_full_name,
                 'labels' => $issue->labels,
             ],
         ]);
