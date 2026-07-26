@@ -79,7 +79,7 @@ class AgentController extends Controller
             ->orderByRaw("CASE WHEN dev_board_slots.agent_role = 'ready' THEN 0 ELSE 1 END") // Ready vor Backlog
             ->orderBy('dev_board_slots.order')  // Slot-Position
             ->orderBy('dev_issues.slot_order')  // Issue-Position im Slot
-            ->select('dev_issues.*')
+            ->select('dev_issues.*', 'dev_boards.type as board_type')
             ->first();
 
         if (!$issue) {
@@ -101,6 +101,7 @@ class AgentController extends Controller
                 'priority' => $issue->priority?->value ?? $issue->priority,
                 'acceptance_criteria' => $issue->acceptance_criteria,
                 'dev_board_id' => $issue->dev_board_id,
+                'board_type' => $issue->board_type, // bug | feature — für den Feature-Sweep im Worker
                 'dev_package_id' => $package->id,
                 'package_name' => $package->name,
                 'github_repo' => $package->github_repo_full_name,
