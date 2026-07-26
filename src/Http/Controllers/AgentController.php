@@ -33,9 +33,10 @@ class AgentController extends Controller
 
         // Nächstes claimbares Issue bestimmen:
         //  - nur agent-freigegebene bug/feature-Boards des Packages (per-Board-Flag)
-        //  - nur aus "Ready"-Slots (is_agent_ready) — nie In Progress/Review/Done/Backlog
+        //  - Features: nur aus "Ready"-Slots. Bugs: zusätzlich aus dem Backlog —
+        //    jeder gemeldete Bug soll drankommen, ohne manuelles Vorsortieren.
         //  - offen, nicht erledigt, nicht (frisch) gesperrt
-        // Priorität: Bugs vor Features -> Board-Reihenfolge -> Slot -> Issue.
+        // Priorität: Bugs vor Features -> Board -> Ready vor Backlog -> Slot -> Issue.
         $query = DevIssue::query()
             ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
             ->join('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
@@ -43,7 +44,14 @@ class AgentController extends Controller
             ->whereNull('dev_board_slots.deleted_at')
             ->where('dev_boards.dev_package_id', $package->id)
             ->whereIn('dev_boards.type', ['bug', 'feature'])
-            ->where('dev_board_slots.agent_role', 'ready')
+            ->where(function ($q) {
+                // Ready ist immer claimbar; bei Bug-Boards zusätzlich der Backlog (agent_role NULL).
+                $q->where('dev_board_slots.agent_role', 'ready')
+                  ->orWhere(function ($q2) {
+                      $q2->where('dev_boards.type', 'bug')
+                         ->whereNull('dev_board_slots.agent_role');
+                  });
+            })
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false)
             ->where(function ($q) {
@@ -67,6 +75,7 @@ class AgentController extends Controller
         $issue = $query
             ->orderByRaw("CASE dev_boards.type WHEN 'bug' THEN 0 WHEN 'feature' THEN 1 ELSE 2 END")
             ->orderBy('dev_boards.order')       // Board-Reihenfolge (bei mehreren Boards gleichen Typs)
+            ->orderByRaw("CASE WHEN dev_board_slots.agent_role = 'ready' THEN 0 ELSE 1 END") // Ready vor Backlog
             ->orderBy('dev_board_slots.order')  // Slot-Position
             ->orderBy('dev_issues.slot_order')  // Issue-Position im Slot
             ->select('dev_issues.*')
