@@ -43,7 +43,6 @@ class AgentController extends Controller
             ->whereNull('dev_board_slots.deleted_at')
             ->where('dev_boards.dev_package_id', $package->id)
             ->whereIn('dev_boards.type', ['bug', 'feature'])
-            ->where('dev_boards.agent_enabled', true)
             ->where('dev_board_slots.agent_role', 'ready')
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false)

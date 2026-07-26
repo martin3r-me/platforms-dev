@@ -8,7 +8,18 @@ use Platform\Dev\Models\DevBoardSlot;
 
 class DevPackageService
 {
-    public const DEFAULT_SLOT_NAMES = ['Backlog', 'To Do', 'In Progress', 'Review', 'Done'];
+    /**
+     * Standard-Slots für jedes Board (immer gleich). Die Worker-Rolle ist per
+     * Konvention fest zugeordnet — kein Mensch konfiguriert Slots. Backlog hat
+     * keine Rolle (Worker ignoriert es).
+     */
+    public const DEFAULT_SLOTS = [
+        ['name' => 'Backlog',   'role' => null],
+        ['name' => 'Ready',     'role' => 'ready'],
+        ['name' => 'In Arbeit', 'role' => 'working'],
+        ['name' => 'Rückfrage', 'role' => 'human'],
+        ['name' => 'Fertig',    'role' => 'done'],
+    ];
 
     public function activate(array $data): DevPackage
     {
@@ -84,13 +95,14 @@ class DevPackageService
 
     public function createDefaultSlots(DevBoard $board): void
     {
-        foreach (self::DEFAULT_SLOT_NAMES as $order => $name) {
+        foreach (self::DEFAULT_SLOTS as $order => $slot) {
             DevBoardSlot::create([
                 'team_id' => $board->team_id,
                 'created_by_user_id' => $board->created_by_user_id,
                 'dev_board_id' => $board->id,
-                'name' => $name,
+                'name' => $slot['name'],
                 'order' => $order,
+                'agent_role' => $slot['role'],
             ]);
         }
     }

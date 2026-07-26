@@ -425,10 +425,9 @@
                             $isBug = $board->type->value === 'bug';
                             $isFeature = $board->type->value === 'feature';
                         @endphp
-                        <div class="relative group">
                         <a href="{{ route('dev.packages.boards.show', [$package, $board]) }}"
                            wire:navigate
-                           class="block p-5 rounded-md border border-gray-200 bg-white hover:border-gray-300 transition-colors">
+                           class="group block p-5 rounded-md border border-gray-200 bg-white hover:border-gray-300 transition-colors">
                             <div class="d-flex items-center gap-3 mb-1">
                                 <div class="flex-shrink-0 w-8 h-8 rounded-md d-flex items-center justify-center {{ $isBug ? 'bg-red-50' : ($isFeature ? 'bg-blue-50' : 'bg-gray-100') }}">
                                     @if($isBug)
@@ -456,17 +455,6 @@
                                 </div>
                             @endif
                         </a>
-                        <div class="absolute top-2 right-2 d-flex items-center gap-1">
-                            @if($board->agent_enabled)
-                                <span class="text-[11px]" title="Worker-tauglich">🤖</span>
-                            @endif
-                            <button type="button" wire:click="openBoardSettings({{ $board->id }})"
-                                    class="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-gray-100 transition-opacity"
-                                    title="Worker-Einstellungen">
-                                @svg('heroicon-o-cog-6-tooth', 'w-4 h-4 text-gray-400')
-                            </button>
-                        </div>
-                        </div>
                     @endforeach
                 </div>
 
@@ -719,59 +707,6 @@
                             class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium text-white bg-[#238636] hover:bg-[#2ea043] rounded-md border border-[#2ea043] transition-colors">
                         @svg('heroicon-o-plus', 'w-3.5 h-3.5')
                         Erstellen
-                    </button>
-                </div>
-            </x-slot>
-        </x-ui-modal>
-    @endif
-
-    {{-- Board Worker-Settings Modal --}}
-    @if($showBoardSettingsModal)
-        <x-ui-modal wire:model="showBoardSettingsModal" size="md" :backdropClosable="true" :escClosable="true">
-            <x-slot name="header">
-                <div class="flex items-center gap-2">
-                    @svg('heroicon-o-cog-6-tooth', 'w-5 h-5 text-gray-500')
-                    <span class="font-semibold">Worker-Einstellungen</span>
-                </div>
-            </x-slot>
-            <div class="space-y-5">
-                <label class="flex items-start gap-3 cursor-pointer rounded-md border border-gray-200 p-3 hover:bg-gray-50 transition-colors">
-                    <input type="checkbox" wire:model="settingsBoardAgentEnabled"
-                           class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#238636] focus:ring-[#238636]">
-                    <span>
-                        <span class="block text-sm font-medium text-gray-800">🤖 Board Worker-tauglich</span>
-                        <span class="block text-xs text-gray-500">Der Worker darf Issues dieses Boards ziehen — aber nur aus „Ready"-Slots.</span>
-                    </span>
-                </label>
-
-                <div>
-                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Slot-Rollen (Worker-Pipeline)</div>
-                    <div class="space-y-2">
-                        @foreach($settingsSlots as $slot)
-                            <div class="flex items-center gap-3">
-                                <span class="text-sm text-gray-700 w-32 truncate">{{ $slot['name'] }}</span>
-                                <select wire:model="settingsSlotRoles.{{ $slot['id'] }}"
-                                        class="flex-1 text-sm rounded-md border-gray-300 focus:ring-[#238636] focus:border-[#238636]">
-                                    @foreach(\Platform\Dev\Enums\SlotAgentRole::options() as $val => $label)
-                                        <option value="{{ $val }}">{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        @endforeach
-                    </div>
-                    <p class="mt-2 text-[11px] text-gray-400">Der Worker holt aus <b>Ready</b>, arbeitet in <b>In Arbeit</b>, parkt Rückfragen in <b>Human-in-the-Loop</b> und legt Fertiges in <b>Fertig</b>.</p>
-                </div>
-            </div>
-            <x-slot name="footer">
-                <div class="flex justify-end gap-3">
-                    <button wire:click="$set('showBoardSettingsModal', false)"
-                            class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 rounded-md border border-gray-300 transition-colors">
-                        Abbrechen
-                    </button>
-                    <button wire:click="saveBoardSettings"
-                            class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium text-white bg-[#238636] hover:bg-[#2ea043] rounded-md border border-[#2ea043] transition-colors">
-                        @svg('heroicon-o-check', 'w-3.5 h-3.5')
-                        Speichern
                     </button>
                 </div>
             </x-slot>
