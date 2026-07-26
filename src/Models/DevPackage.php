@@ -34,12 +34,14 @@ class DevPackage extends Model implements HasChildContextRelations
         'github_repo_full_name',
         'github_repo_id',
         'status',
+        'agent_enabled',
         'icon',
         'order',
     ];
 
     protected $casts = [
         'locked_at' => 'datetime',
+        'agent_enabled' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -126,6 +128,15 @@ class DevPackage extends Model implements HasChildContextRelations
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
+    }
+
+    /**
+     * Packages that are released for the autonomous worker. A package is only
+     * in the agent's scope when it is both active and explicitly agent-enabled.
+     */
+    public function scopeAgentEnabled($query)
+    {
+        return $query->where('status', 'active')->where('agent_enabled', true);
     }
 
     // ── HasChildContextRelations ─────────────────────────────

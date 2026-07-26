@@ -25,6 +25,12 @@ class AgentController extends Controller
             return response()->json(['message' => 'Package not found'], 404);
         }
 
+        // Gate: the worker may only pull issues from packages that were
+        // explicitly released for the agent.
+        if (!$package->agent_enabled) {
+            return response()->json(['message' => 'Package not released for agent'], 403);
+        }
+
         // Find next open, unlocked issue on feature/bug boards (not backlog).
         // Order: slot position (board column order), then issue order within slot.
         $query = DevIssue::query()
@@ -216,13 +222,13 @@ class AgentController extends Controller
     }
 
     /**
-     * List all active packages with their repo mapping.
+     * List all agent-enabled packages with their repo mapping.
      *
      * GET /api/dev/agent/packages
      */
     public function packages(Request $request): JsonResponse
     {
-        $packages = DevPackage::active()
+        $packages = DevPackage::agentEnabled()
             ->orderBy('order')
             ->get(['id', 'name', 'github_repo_full_name', 'status']);
 
