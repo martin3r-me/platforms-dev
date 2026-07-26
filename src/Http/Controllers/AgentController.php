@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Platform\Dev\Enums\IssueStoryPoints;
+use Platform\Dev\Models\DevBoardSlot;
 use Platform\Dev\Models\DevIssue;
 use Platform\Dev\Models\DevPackage;
 
@@ -209,6 +210,59 @@ class AgentController extends Controller
         return response()->json([
             'message' => 'Issue marked as failed',
             'data' => ['id' => $issue->id],
+        ]);
+    }
+
+    /**
+     * Agent stellt eine Rückfrage und legt das Issue in den human-Slot zurück.
+     * Der Mensch beantwortet und schiebt es zurück nach Ready — dann greift der Worker erneut.
+     *
+     * POST /api/dev/agent/issues/{id}/defer
+     */
+    public function defer(Request $request, int $id): JsonResponse
+    {
+        $issue = DevIssue::find($id);
+
+        if (!$issue) {
+            return response()->json(['message' => 'Issue not found'], 404);
+        }
+
+        $data = $request->validate([
+            'question' => 'required|string|max:5000',
+            'branch' => 'nullable|string|max:255',
+        ]);
+        $question = $data['question'];
+
+        // In den "Rückfrage"-Slot (agent_role=human) desselben Boards verschieben.
+        $humanSlot = DevBoardSlot::where('dev_board_id', $issue->dev_board_id)
+            ->where('agent_role', 'human')
+            ->orderBy('order')
+            ->first();
+
+        $update = [
+            'agent_summary' => 'RÜCKFRAGE: ' . $question,
+            'agent_locked_at' => null,
+            'agent_locked_by' => null,
+        ];
+        if ($humanSlot) {
+            $update['dev_board_slot_id'] = $humanSlot->id;
+        }
+        $issue->update($update);
+
+        // Issue bleibt "open" — es ist eine offene Rückfrage, kein Abschluss.
+        $issue->logActivity("Agent hat eine Rückfrage gestellt und das Issue zurückgestellt.\n\nFrage: {$question}", [
+            'source' => 'agent',
+            'status' => 'deferred',
+        ]);
+
+        Log::info('[Dev Agent] Issue deferred (Rückfrage)', [
+            'issue_id' => $issue->id,
+            'moved_to_slot' => $humanSlot?->id,
+        ]);
+
+        return response()->json([
+            'message' => 'Issue deferred to human slot',
+            'data' => ['id' => $issue->id, 'moved_to_slot' => $humanSlot?->id],
         ]);
     }
 

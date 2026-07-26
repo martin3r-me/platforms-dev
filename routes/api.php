@@ -22,6 +22,8 @@ Route::prefix('dev/agent')->middleware('auth:api')->group(function () {
         ->name('dev.api.agent.complete');
     Route::post('/issues/{id}/fail', [AgentController::class, 'fail'])
         ->name('dev.api.agent.fail');
+    Route::post('/issues/{id}/defer', [AgentController::class, 'defer'])
+        ->name('dev.api.agent.defer');
     Route::post('/issues/{id}/unlock', [AgentController::class, 'unlock'])
         ->name('dev.api.agent.unlock');
 });
