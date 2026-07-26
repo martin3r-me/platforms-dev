@@ -16,6 +16,8 @@ Route::post('/dev/errors/ingest/{token}', [ErrorIngestController::class, 'ingest
 Route::prefix('dev/agent')->middleware('auth:api')->group(function () {
     Route::get('/packages', [AgentController::class, 'packages'])
         ->name('dev.api.agent.packages');
+    Route::get('/pipeline', [AgentController::class, 'pipeline'])
+        ->name('dev.api.agent.pipeline');
     Route::post('/packages/{slug}/next-issue', [AgentController::class, 'nextIssue'])
         ->name('dev.api.agent.next-issue');
     Route::post('/issues/{id}/complete', [AgentController::class, 'complete'])

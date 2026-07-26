@@ -294,6 +294,97 @@ class AgentController extends Controller
     }
 
     /**
+     * Pipeline-Aggregat über alle agent-freigegebenen Packages — die Leitwarte
+     * für den Worker-Betrieb: offene Bugs/Features, Ready-Queue, Rückfragen, Alter.
+     *
+     * GET /api/dev/agent/pipeline
+     */
+    public function pipeline(Request $request): JsonResponse
+    {
+        $packages = DevPackage::agentEnabled()->get(['id', 'name', 'github_repo_full_name']);
+        $ids = $packages->pluck('id')->all();
+
+        $empty = ['bugs' => 0, 'features' => 0, 'ready' => 0, 'rueckfragen' => 0, 'oldest' => null];
+        if (empty($ids)) {
+            return response()->json(['data' => ['totals' => $empty, 'packages' => [], 'next_up' => []]]);
+        }
+
+        $base = fn () => DevIssue::query()
+            ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
+            ->join('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
+            ->whereNull('dev_boards.deleted_at')
+            ->whereNull('dev_board_slots.deleted_at')
+            ->whereIn('dev_boards.dev_package_id', $ids)
+            ->whereIn('dev_boards.type', ['bug', 'feature'])
+            ->where('dev_issues.status', 'open')
+            ->where('dev_issues.is_done', false);
+
+        // Zählung pro Package x Typ x Rolle.
+        $rows = $base()
+            ->selectRaw('dev_boards.dev_package_id as pid, dev_boards.type as btype, dev_board_slots.agent_role as role, count(*) as c, min(dev_issues.created_at) as oldest')
+            ->groupBy('dev_boards.dev_package_id', 'dev_boards.type', 'dev_board_slots.agent_role')
+            ->get();
+
+        $perPackage = [];
+        foreach ($packages as $p) {
+            $perPackage[$p->id] = ['name' => $p->name, 'github_repo' => $p->github_repo_full_name] + $empty;
+        }
+        foreach ($rows as $r) {
+            $pk = $perPackage[$r->pid];
+            if ($r->btype === 'bug') $pk['bugs'] += (int) $r->c;
+            if ($r->btype === 'feature') $pk['features'] += (int) $r->c;
+            if ($r->role === 'ready' || ($r->btype === 'bug' && $r->role === null)) $pk['ready'] += (int) $r->c;
+            if ($r->role === 'human') $pk['rueckfragen'] += (int) $r->c;
+            if ($r->oldest && ($pk['oldest'] === null || $r->oldest < $pk['oldest'])) $pk['oldest'] = $r->oldest;
+            $perPackage[$r->pid] = $pk;
+        }
+
+        $totals = $empty;
+        foreach ($perPackage as $pk) {
+            foreach (['bugs', 'features', 'ready', 'rueckfragen'] as $k) {
+                $totals[$k] += $pk[$k];
+            }
+            if ($pk['oldest'] && ($totals['oldest'] === null || $pk['oldest'] < $totals['oldest'])) {
+                $totals['oldest'] = $pk['oldest'];
+            }
+        }
+
+        // "Was kommt als Nächstes": claimbare Issues (Ready ODER Bug-Backlog), nicht gesperrt,
+        // in Claim-Reihenfolge (Bugs vor Features, Ready vor Backlog, dann Alter).
+        $nameById = $packages->keyBy('id');
+        $nextUp = $base()
+            ->where(function ($q) {
+                $q->where('dev_board_slots.agent_role', 'ready')
+                  ->orWhere(function ($q2) {
+                      $q2->where('dev_boards.type', 'bug')->whereNull('dev_board_slots.agent_role');
+                  });
+            })
+            ->where(function ($q) {
+                $q->whereNull('dev_issues.agent_locked_at')
+                  ->orWhere('dev_issues.agent_locked_at', '<', now()->subMinutes(30));
+            })
+            ->orderByRaw("CASE dev_boards.type WHEN 'bug' THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN dev_board_slots.agent_role = 'ready' THEN 0 ELSE 1 END")
+            ->orderBy('dev_issues.created_at')
+            ->limit(12)
+            ->get(['dev_issues.id', 'dev_issues.title', 'dev_issues.created_at', 'dev_issues.story_points', 'dev_boards.type as board_type', 'dev_boards.dev_package_id as pid'])
+            ->map(fn ($i) => [
+                'id' => $i->id,
+                'title' => $i->title,
+                'type' => $i->board_type,
+                'package' => $nameById[$i->pid]->name ?? null,
+                'story_points' => $i->story_points?->value ?? $i->story_points,
+                'created_at' => optional($i->created_at)->toIso8601String(),
+            ]);
+
+        return response()->json(['data' => [
+            'totals' => $totals,
+            'packages' => array_values($perPackage),
+            'next_up' => $nextUp,
+        ]]);
+    }
+
+    /**
      * List all agent-enabled packages with their repo mapping.
      *
      * GET /api/dev/agent/packages
