@@ -31,7 +31,7 @@ class Sidebar extends Component
             ? DevPackage::where('team_id', $teamId)
                 ->where('status', 'active')
                 ->with(['boards' => fn ($q) => $q->active()->withCount([
-                    'issues as open_issues_count' => fn ($q) => $q->where('status', 'open'),
+                    'issues as open_issues_count' => fn ($q) => $q->where('status', 'open')->where('is_done', false),
                 ])->orderBy('order')])
                 ->orderBy('order')
                 ->get()
@@ -45,6 +45,7 @@ class Sidebar extends Component
                 ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
                 ->where('dev_boards.type', 'bug')
                 ->where('dev_issues.status', 'open')
+                ->where('dev_issues.is_done', false)
                 ->whereIn('dev_boards.dev_package_id', $packageIds)
                 ->selectRaw('dev_boards.dev_package_id, COUNT(*) as count')
                 ->groupBy('dev_boards.dev_package_id')
@@ -54,6 +55,7 @@ class Sidebar extends Component
                 ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
                 ->where('dev_boards.type', 'feature')
                 ->where('dev_issues.status', 'open')
+                ->where('dev_issues.is_done', false)
                 ->whereIn('dev_boards.dev_package_id', $packageIds)
                 ->selectRaw('dev_boards.dev_package_id, COUNT(*) as count')
                 ->groupBy('dev_boards.dev_package_id')
