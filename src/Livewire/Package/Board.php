@@ -320,7 +320,7 @@ class Board extends Component
 
         $allBoards = $this->package->boards()
             ->active()
-            ->withCount(['issues as open_issues_count' => fn ($q) => $q->where('status', 'open')])
+            ->withCount(['issues as open_issues_count' => fn ($q) => $q->open()])
             ->orderBy('order')
             ->get();
 

@@ -66,8 +66,8 @@ class GetPackageTool implements ToolContract, ToolMetadataContract
             $openIssues = 0;
             $closedIssues = 0;
             foreach ($package->boards as $board) {
-                $openIssues += $board->issues()->where('status', 'open')->count();
-                $closedIssues += $board->issues()->where('status', 'closed')->count();
+                $openIssues += $board->issues()->open()->count();
+                $closedIssues += $board->issues()->closed()->count();
             }
 
             return ToolResult::success([
