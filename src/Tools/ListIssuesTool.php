@@ -83,7 +83,8 @@ class ListIssuesTool implements ToolContract, ToolMetadataContract
             }
 
             if (!empty($arguments['status'])) {
-                $query->where('status', $arguments['status']);
+                // is_done kann auch ohne Status-Wechsel gesetzt sein -> Scopes nutzen
+                $arguments['status'] === 'closed' ? $query->closed() : $query->open();
             }
 
             if (!empty($arguments['priority'])) {

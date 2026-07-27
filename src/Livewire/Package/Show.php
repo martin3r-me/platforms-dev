@@ -271,32 +271,37 @@ class Show extends Component
     public function render()
     {
         $this->package->load(['userInCharge', 'lockedByUser']);
+        $boardCounts = [
+            'issues as open_issues_count' => fn ($q) => $q->open(),
+            'issues as done_issues_count' => fn ($q) => $q->done(),
+        ];
+
         $boards = $this->package->boards()
             ->active()
-            ->withCount(['issues as open_issues_count' => fn ($q) => $q->where('status', 'open')])
+            ->withCount($boardCounts)
             ->orderBy('order')
             ->get();
 
         $archivedBoards = $this->package->boards()
             ->archived()
-            ->withCount(['issues as open_issues_count' => fn ($q) => $q->where('status', 'open')])
+            ->withCount($boardCounts)
             ->orderBy('order')
             ->get();
 
         $packageIssues = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $this->package->id));
 
-        $totalOpen = (clone $packageIssues)->where('status', 'open')->count();
-        $totalDone = (clone $packageIssues)->where('is_done', true)->count();
+        $totalOpen = (clone $packageIssues)->open()->count();
+        $totalDone = (clone $packageIssues)->done()->count();
         $totalOverdue = (clone $packageIssues)
-            ->where('status', 'open')
+            ->open()
             ->whereNotNull('due_date')
             ->where('due_date', '<', now())
             ->count();
-        $totalHighPriority = (clone $packageIssues)->where('status', 'open')->where('priority', 'high')->count();
+        $totalHighPriority = (clone $packageIssues)->open()->where('priority', 'high')->count();
 
         // Recent open issues for this package
         $recentIssues = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $this->package->id))
-            ->where('status', 'open')
+            ->open()
             ->with(['board', 'userInCharge'])
             ->orderByDesc('created_at')
             ->limit(10)
@@ -304,7 +309,7 @@ class Show extends Component
 
         // Recently completed
         $recentlyDone = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $this->package->id))
-            ->where('is_done', true)
+            ->done()
             ->with(['board'])
             ->orderByDesc('done_at')
             ->limit(5)

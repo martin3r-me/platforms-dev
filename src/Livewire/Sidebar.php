@@ -31,7 +31,7 @@ class Sidebar extends Component
             ? DevPackage::where('team_id', $teamId)
                 ->where('status', 'active')
                 ->with(['boards' => fn ($q) => $q->active()->withCount([
-                    'issues as open_issues_count' => fn ($q) => $q->where('status', 'open')->where('is_done', false),
+                    'issues as open_issues_count' => fn ($q) => $q->open(),
                 ])->orderBy('order')])
                 ->orderBy('order')
                 ->get()

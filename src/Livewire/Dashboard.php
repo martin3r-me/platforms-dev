@@ -138,18 +138,18 @@ class Dashboard extends Component
 
         $teamIssues = DevIssue::whereHas('board.package', fn ($q) => $q->where('team_id', $team->id)->where('status', 'active'));
 
-        $totalOpen = (clone $teamIssues)->where('status', 'open')->count();
-        $totalDone = (clone $teamIssues)->where('is_done', true)->count();
+        $totalOpen = (clone $teamIssues)->open()->count();
+        $totalDone = (clone $teamIssues)->done()->count();
         $totalOverdue = (clone $teamIssues)
-            ->where('status', 'open')
+            ->open()
             ->whereNotNull('due_date')
             ->where('due_date', '<', now())
             ->count();
-        $totalHighPriority = (clone $teamIssues)->where('status', 'open')->where('priority', 'high')->count();
+        $totalHighPriority = (clone $teamIssues)->open()->where('priority', 'high')->count();
 
         // Recent open issues
         $recentIssues = DevIssue::whereHas('board.package', fn ($q) => $q->where('team_id', $team->id)->where('status', 'active'))
-            ->where('status', 'open')
+            ->open()
             ->with(['board.package', 'userInCharge', 'createdBy'])
             ->orderByDesc('created_at')
             ->limit(10)
@@ -157,7 +157,7 @@ class Dashboard extends Component
 
         // Recently completed
         $recentlyDone = DevIssue::whereHas('board.package', fn ($q) => $q->where('team_id', $team->id)->where('status', 'active'))
-            ->where('is_done', true)
+            ->done()
             ->with(['board.package', 'userInCharge'])
             ->orderByDesc('done_at')
             ->limit(5)
@@ -167,9 +167,9 @@ class Dashboard extends Component
         $packageStats = [];
         foreach ($packages as $package) {
             $openFeatures = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $package->id)->where('type', 'feature'))
-                ->where('status', 'open')->count();
+                ->open()->count();
             $openBugs = DevIssue::whereHas('board', fn ($q) => $q->where('dev_package_id', $package->id)->where('type', 'bug'))
-                ->where('status', 'open')->count();
+                ->open()->count();
             $packageStats[$package->id] = [
                 'open_features' => $openFeatures,
                 'open_bugs' => $openBugs,

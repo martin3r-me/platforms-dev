@@ -419,8 +419,8 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach($boards as $board)
                         @php
-                            $boardTotal = $board->open_issues_count + ($board->issues()->where('is_done', true)->count());
-                            $boardDone = $boardTotal - $board->open_issues_count;
+                            $boardDone = $board->done_issues_count;
+                            $boardTotal = $board->open_issues_count + $boardDone;
                             $boardPct = $boardTotal > 0 ? round($boardDone / $boardTotal * 100) : 0;
                             $isBug = $board->type->value === 'bug';
                             $isFeature = $board->type->value === 'feature';

@@ -98,14 +98,25 @@ class DevIssue extends Model
         return $query->where('team_id', $teamId);
     }
 
+    /**
+     * Offen = weder geschlossen noch als erledigt markiert.
+     * is_done kann auch ohne Status-Wechsel gesetzt werden (Board "ERLEDIGT"),
+     * darum zaehlt beides.
+     */
     public function scopeOpen($query)
     {
-        return $query->where('status', 'open');
+        return $query->where('status', 'open')
+            ->where('is_done', false);
     }
 
     public function scopeClosed($query)
     {
-        return $query->where('status', 'closed');
+        return $query->where(fn ($q) => $q->where('status', 'closed')->orWhere('is_done', true));
+    }
+
+    public function scopeDone($query)
+    {
+        return $query->where('is_done', true);
     }
 
     public function scopeInBacklog($query)
