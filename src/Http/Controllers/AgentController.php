@@ -173,6 +173,67 @@ class AgentController extends Controller
     }
 
     /**
+     * Log elapsed time onto an issue (autonomous worker, at end of run).
+     *
+     * POST /api/dev/agent/issues/{id}/log-time  { minutes, note? }
+     *
+     * Writes an Organization time entry with context = this DevIssue, so the run's
+     * wall-clock time rolls up on the issue (and its board/package/team hierarchy).
+     * The worker (its own platform token) is the user; the team comes from the issue.
+     */
+    public function logTime(Request $request, int $id): JsonResponse
+    {
+        $issue = DevIssue::find($id);
+
+        if (!$issue) {
+            return response()->json(['message' => 'Issue not found'], 404);
+        }
+
+        $data = $request->validate([
+            'minutes' => 'required|integer|min:1|max:100000',
+            'note' => 'nullable|string|max:1000',
+        ]);
+
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        // Reuse the organization time-entry service (context_type = DevIssue).
+        // Guarded so the dev module stays usable if organization is absent.
+        $storeClass = \Platform\Organization\Services\StoreTimeEntry::class;
+        if (!class_exists($storeClass)) {
+            return response()->json(['message' => 'Time tracking unavailable (organization module missing)'], 501);
+        }
+
+        $entry = app($storeClass)->store([
+            'team_id' => $issue->team_id,
+            'user_id' => $user->id,
+            'context_type' => DevIssue::class,
+            'context_id' => $issue->id,
+            'work_date' => now()->toDateString(),
+            'minutes' => (int) $data['minutes'],
+            'note' => $data['note'] ?? null,
+            'metadata' => ['source' => 'agent'],
+        ]);
+
+        Log::info('[Dev Agent] Time logged', [
+            'issue_id' => $issue->id,
+            'minutes' => (int) $data['minutes'],
+            'entry_id' => $entry->id,
+        ]);
+
+        return response()->json([
+            'message' => 'Time logged',
+            'data' => [
+                'id' => $entry->id,
+                'minutes' => $entry->minutes,
+                'issue_id' => $issue->id,
+            ],
+        ]);
+    }
+
+    /**
      * Mark an issue as failed by the agent.
      *
      * POST /api/dev/agent/issues/{id}/fail
