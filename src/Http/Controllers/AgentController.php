@@ -41,6 +41,7 @@ class AgentController extends Controller
 
         $query = DevIssue::query()
             ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
+            ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
             ->whereNull('dev_boards.deleted_at')
             ->where('dev_boards.dev_package_id', $package->id)
             ->whereIn('dev_boards.type', ['bug', 'feature'])
@@ -70,11 +71,12 @@ class AgentController extends Controller
             });
         }
 
-        // Priorität: Bugs vor Features, zugewiesen vor unzugewiesen, dann Alter.
+        // Reihenfolge = Board-Layout (der Mensch priorisiert per Anordnung):
+        // Board-Order → Slot-Order → Position im Slot. Backlog (ohne Slot) zuletzt.
         $issue = $query
-            ->orderByRaw("CASE dev_boards.type WHEN 'bug' THEN 0 WHEN 'feature' THEN 1 ELSE 2 END")
-            ->orderByRaw('CASE WHEN dev_issues.user_in_charge_id IS NULL THEN 1 ELSE 0 END')
             ->orderBy('dev_boards.order')
+            ->orderByRaw('dev_board_slots.order IS NULL')
+            ->orderBy('dev_board_slots.order')
             ->orderBy('dev_issues.slot_order')
             ->orderBy('dev_issues.created_at')
             ->select('dev_issues.*', 'dev_boards.type as board_type')
@@ -531,13 +533,16 @@ class AgentController extends Controller
         }
 
         // "Was kommt als Nächstes": für diesen Worker claimbare Issues (zugewiesen ODER
-        // unzugewiesen), nicht gesperrt — Bugs vor Features, zugewiesen vor unzugewiesen.
+        // unzugewiesen), nicht gesperrt — in Board-Reihenfolge (wie der echte Claim).
         $nameById = $packages->keyBy('id');
         $nextUp = $base()
+            ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
             ->where(fn ($q) => $q->where('dev_issues.user_in_charge_id', $workerId)->orWhereNull('dev_issues.user_in_charge_id'))
             ->where(fn ($q) => $q->whereNull('dev_issues.agent_locked_at')->orWhere('dev_issues.agent_locked_at', '<', $stale))
-            ->orderByRaw("CASE dev_boards.type WHEN 'bug' THEN 0 ELSE 1 END")
-            ->orderByRaw('CASE WHEN dev_issues.user_in_charge_id IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('dev_boards.order')
+            ->orderByRaw('dev_board_slots.order IS NULL')
+            ->orderBy('dev_board_slots.order')
+            ->orderBy('dev_issues.slot_order')
             ->orderBy('dev_issues.created_at')
             ->limit(12)
             ->get(['dev_issues.id', 'dev_issues.title', 'dev_issues.created_at', 'dev_issues.story_points', 'dev_boards.type as board_type', 'dev_boards.dev_package_id as pid'])
