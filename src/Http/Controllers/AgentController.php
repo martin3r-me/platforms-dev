@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Platform\Dev\Enums\IssueStoryPoints;
-use Platform\Dev\Models\DevBoardSlot;
 use Platform\Dev\Models\DevIssue;
 use Platform\Dev\Models\DevPackage;
 
@@ -32,32 +31,30 @@ class AgentController extends Controller
             return response()->json(['message' => 'Package not released for agent'], 403);
         }
 
-        // Nächstes claimbares Issue bestimmen:
-        //  - nur agent-freigegebene bug/feature-Boards des Packages (per-Board-Flag)
-        //  - Features: nur aus "Ready"-Slots. Bugs: zusätzlich aus dem Backlog —
-        //    jeder gemeldete Bug soll drankommen, ohne manuelles Vorsortieren.
+        // Nächstes Issue bestimmen — wie im Planner: relevant ist der VERANTWORTLICHE,
+        // KEINE Slot-Rollen mehr. Der Worker holt ihm zugewiesene Issues/Features
+        // (user_in_charge_id) und, bei gesetztem Setting, zusätzlich unzugewiesene (Pool).
+        //  - nur agent-freigegebene bug/feature-Boards des Packages
         //  - offen, nicht erledigt, nicht (frisch) gesperrt
-        // Priorität: Bugs vor Features -> Board -> Ready vor Backlog -> Slot -> Issue.
+        $workerId = (int) $request->user()?->id;
+        $allowUnassigned = $request->boolean('allow_unassigned');
+
         $query = DevIssue::query()
             ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
-            ->join('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
             ->whereNull('dev_boards.deleted_at')
-            ->whereNull('dev_board_slots.deleted_at')
             ->where('dev_boards.dev_package_id', $package->id)
             ->whereIn('dev_boards.type', ['bug', 'feature'])
-            ->where(function ($q) {
-                // Ready ist immer claimbar; bei Bug-Boards zusätzlich der Backlog (agent_role NULL).
-                $q->where('dev_board_slots.agent_role', 'ready')
-                  ->orWhere(function ($q2) {
-                      $q2->where('dev_boards.type', 'bug')
-                         ->whereNull('dev_board_slots.agent_role');
-                  });
-            })
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false)
             ->where(function ($q) {
                 $q->whereNull('dev_issues.agent_locked_at')
                   ->orWhere('dev_issues.agent_locked_at', '<', now()->subMinutes(30));
+            })
+            ->where(function ($q) use ($workerId, $allowUnassigned) {
+                $q->where('dev_issues.user_in_charge_id', $workerId);
+                if ($allowUnassigned) {
+                    $q->orWhereNull('dev_issues.user_in_charge_id');
+                }
             });
 
         // Filter by max story points (worker sends this from local config)
@@ -73,12 +70,13 @@ class AgentController extends Controller
             });
         }
 
+        // Priorität: Bugs vor Features, zugewiesen vor unzugewiesen, dann Alter.
         $issue = $query
             ->orderByRaw("CASE dev_boards.type WHEN 'bug' THEN 0 WHEN 'feature' THEN 1 ELSE 2 END")
-            ->orderBy('dev_boards.order')       // Board-Reihenfolge (bei mehreren Boards gleichen Typs)
-            ->orderByRaw("CASE WHEN dev_board_slots.agent_role = 'ready' THEN 0 ELSE 1 END") // Ready vor Backlog
-            ->orderBy('dev_board_slots.order')  // Slot-Position
-            ->orderBy('dev_issues.slot_order')  // Issue-Position im Slot
+            ->orderByRaw('CASE WHEN dev_issues.user_in_charge_id IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('dev_boards.order')
+            ->orderBy('dev_issues.slot_order')
+            ->orderBy('dev_issues.created_at')
             ->select('dev_issues.*', 'dev_boards.type as board_type')
             ->first();
 
@@ -153,11 +151,18 @@ class AgentController extends Controller
      * keiner da) — Absender = Worker, erwähnt IMMER den Verantwortlichen des Dev-
      * Packages (DevPackage.user_in_charge_id; Fallback Package-/Issue-Ersteller).
      */
-    protected function postToIssueThread(DevIssue $issue, int $senderId, string $body): void
+    /** Empfänger einer Dev-Rückfrage: Verantwortlicher des Packages (Fallback Package-/Issue-Ersteller). */
+    protected function packageResponsibleId(DevIssue $issue): ?int
     {
         $package = DevPackage::find((int) $issue->board?->dev_package_id);
-        $recipientId = (int) ($package?->user_in_charge_id ?: $package?->created_by_user_id ?: $issue->created_by_user_id);
-        $recipients = array_values(array_filter([$recipientId]));
+        $id = (int) ($package?->user_in_charge_id ?: $package?->created_by_user_id ?: $issue->created_by_user_id);
+
+        return $id > 0 ? $id : null;
+    }
+
+    protected function postToIssueThread(DevIssue $issue, int $senderId, string $body): void
+    {
+        $recipients = array_values(array_filter([$this->packageResponsibleId($issue)]));
 
         app(\Platform\Core\Services\PostContextMessage::class)->post(
             teamId: (int) $issue->team_id,
@@ -192,31 +197,26 @@ class AgentController extends Controller
 
         $this->postToIssueThread($issue, (int) $request->user()?->id, $question);
 
-        // Park: in den "Rückfrage"-Slot (agent_role=human) desselben Boards zurückstellen.
-        $humanSlot = DevBoardSlot::where('dev_board_id', $issue->dev_board_id)
-            ->where('agent_role', 'human')
-            ->orderBy('order')
-            ->first();
-        $update = [
+        // Park wie im Planner: dem Package-Verantwortlichen zuweisen → raus aus der
+        // Worker-Queue (nicht mehr ihm zugewiesen, nicht unzugewiesen). Reclaim macht
+        // der Mensch, indem er den Verantwortlichen wieder auf den Worker setzt.
+        $issue->update([
+            'user_in_charge_id' => $this->packageResponsibleId($issue) ?? $issue->user_in_charge_id,
             'agent_summary' => 'RÜCKFRAGE: ' . $question,
             'agent_locked_at' => null,
             'agent_locked_by' => null,
-        ];
-        if ($humanSlot) {
-            $update['dev_board_slot_id'] = $humanSlot->id;
-        }
-        $issue->update($update);
+        ]);
 
         $issue->logActivity("Agent hat eine Rückfrage im Kontext-Thread gestellt.\n\nFrage: {$question}", [
             'source' => 'agent',
             'status' => 'deferred',
         ]);
 
-        Log::info('[Dev Agent] Rückfrage in Context-Thread', ['issue_id' => $issue->id, 'moved_to_slot' => $humanSlot?->id]);
+        Log::info('[Dev Agent] Rückfrage in Context-Thread', ['issue_id' => $issue->id]);
 
         return response()->json([
             'message' => 'Question posted to context thread',
-            'data' => ['id' => $issue->id, 'moved_to_slot' => $humanSlot?->id],
+            'data' => ['id' => $issue->id],
         ]);
     }
 
@@ -410,21 +410,15 @@ class AgentController extends Controller
         ]);
         $question = $data['question'];
 
-        // In den "Rückfrage"-Slot (agent_role=human) desselben Boards verschieben.
-        $humanSlot = DevBoardSlot::where('dev_board_id', $issue->dev_board_id)
-            ->where('agent_role', 'human')
-            ->orderBy('order')
-            ->first();
-
-        $update = [
+        // Park wie ask/Planner: dem Package-Verantwortlichen zuweisen (raus aus der
+        // Worker-Queue), Lock lösen. Keine Slot-Rollen mehr. (Legacy — der Worker
+        // nutzt jetzt ask; hier kein Thread-Post.)
+        $issue->update([
+            'user_in_charge_id' => $this->packageResponsibleId($issue) ?? $issue->user_in_charge_id,
             'agent_summary' => 'RÜCKFRAGE: ' . $question,
             'agent_locked_at' => null,
             'agent_locked_by' => null,
-        ];
-        if ($humanSlot) {
-            $update['dev_board_slot_id'] = $humanSlot->id;
-        }
-        $issue->update($update);
+        ]);
 
         // Issue bleibt "open" — es ist eine offene Rückfrage, kein Abschluss.
         $issue->logActivity("Agent hat eine Rückfrage gestellt und das Issue zurückgestellt.\n\nFrage: {$question}", [
@@ -432,14 +426,11 @@ class AgentController extends Controller
             'status' => 'deferred',
         ]);
 
-        Log::info('[Dev Agent] Issue deferred (Rückfrage)', [
-            'issue_id' => $issue->id,
-            'moved_to_slot' => $humanSlot?->id,
-        ]);
+        Log::info('[Dev Agent] Issue deferred (Rückfrage)', ['issue_id' => $issue->id]);
 
         return response()->json([
-            'message' => 'Issue deferred to human slot',
-            'data' => ['id' => $issue->id, 'moved_to_slot' => $humanSlot?->id],
+            'message' => 'Issue deferred',
+            'data' => ['id' => $issue->id],
         ]);
     }
 
@@ -485,34 +476,48 @@ class AgentController extends Controller
             return response()->json(['data' => ['totals' => $empty, 'packages' => [], 'next_up' => []]]);
         }
 
+        $workerId = (int) $request->user()?->id;
+        $stale = now()->subMinutes(30);
+
+        // Wie im Claim: keine Slot-Rollen mehr, es zählt der Verantwortliche.
         $base = fn () => DevIssue::query()
             ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
-            ->join('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
             ->whereNull('dev_boards.deleted_at')
-            ->whereNull('dev_board_slots.deleted_at')
             ->whereIn('dev_boards.dev_package_id', $ids)
             ->whereIn('dev_boards.type', ['bug', 'feature'])
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false);
 
-        // Zählung pro Package x Typ x Rolle.
-        $rows = $base()
-            ->selectRaw('dev_boards.dev_package_id as pid, dev_boards.type as btype, dev_board_slots.agent_role as role, count(*) as c, min(dev_issues.created_at) as oldest')
-            ->groupBy('dev_boards.dev_package_id', 'dev_boards.type', 'dev_board_slots.agent_role')
-            ->get();
-
         $perPackage = [];
         foreach ($packages as $p) {
             $perPackage[$p->id] = ['name' => $p->name, 'github_repo' => $p->github_repo_full_name] + $empty;
         }
-        foreach ($rows as $r) {
+
+        // Bugs/Features + ältestes offenes Issue je Package.
+        foreach ($base()
+            ->selectRaw('dev_boards.dev_package_id as pid, dev_boards.type as btype, count(*) as c, min(dev_issues.created_at) as oldest')
+            ->groupBy('dev_boards.dev_package_id', 'dev_boards.type')->get() as $r) {
             $pk = $perPackage[$r->pid];
             if ($r->btype === 'bug') $pk['bugs'] += (int) $r->c;
             if ($r->btype === 'feature') $pk['features'] += (int) $r->c;
-            if ($r->role === 'ready' || ($r->btype === 'bug' && $r->role === null)) $pk['ready'] += (int) $r->c;
-            if ($r->role === 'human') $pk['rueckfragen'] += (int) $r->c;
             if ($r->oldest && ($pk['oldest'] === null || $r->oldest < $pk['oldest'])) $pk['oldest'] = $r->oldest;
             $perPackage[$r->pid] = $pk;
+        }
+
+        // Rückfragen: offene Issues mit RÜCKFRAGE-Marker (an den Verantwortlichen zurückgegeben).
+        foreach ($base()->where('dev_issues.agent_summary', 'like', 'RÜCKFRAGE:%')
+            ->selectRaw('dev_boards.dev_package_id as pid, count(*) as c')
+            ->groupBy('dev_boards.dev_package_id')->get() as $r) {
+            $perPackage[$r->pid]['rueckfragen'] += (int) $r->c;
+        }
+
+        // Ready = für DIESEN Worker claimbar: ihm zugewiesen ODER unzugewiesen, nicht gesperrt.
+        foreach ($base()
+            ->where(fn ($q) => $q->where('dev_issues.user_in_charge_id', $workerId)->orWhereNull('dev_issues.user_in_charge_id'))
+            ->where(fn ($q) => $q->whereNull('dev_issues.agent_locked_at')->orWhere('dev_issues.agent_locked_at', '<', $stale))
+            ->selectRaw('dev_boards.dev_package_id as pid, count(*) as c')
+            ->groupBy('dev_boards.dev_package_id')->get() as $r) {
+            $perPackage[$r->pid]['ready'] += (int) $r->c;
         }
 
         $totals = $empty;
@@ -525,22 +530,14 @@ class AgentController extends Controller
             }
         }
 
-        // "Was kommt als Nächstes": claimbare Issues (Ready ODER Bug-Backlog), nicht gesperrt,
-        // in Claim-Reihenfolge (Bugs vor Features, Ready vor Backlog, dann Alter).
+        // "Was kommt als Nächstes": für diesen Worker claimbare Issues (zugewiesen ODER
+        // unzugewiesen), nicht gesperrt — Bugs vor Features, zugewiesen vor unzugewiesen.
         $nameById = $packages->keyBy('id');
         $nextUp = $base()
-            ->where(function ($q) {
-                $q->where('dev_board_slots.agent_role', 'ready')
-                  ->orWhere(function ($q2) {
-                      $q2->where('dev_boards.type', 'bug')->whereNull('dev_board_slots.agent_role');
-                  });
-            })
-            ->where(function ($q) {
-                $q->whereNull('dev_issues.agent_locked_at')
-                  ->orWhere('dev_issues.agent_locked_at', '<', now()->subMinutes(30));
-            })
+            ->where(fn ($q) => $q->where('dev_issues.user_in_charge_id', $workerId)->orWhereNull('dev_issues.user_in_charge_id'))
+            ->where(fn ($q) => $q->whereNull('dev_issues.agent_locked_at')->orWhere('dev_issues.agent_locked_at', '<', $stale))
             ->orderByRaw("CASE dev_boards.type WHEN 'bug' THEN 0 ELSE 1 END")
-            ->orderByRaw("CASE WHEN dev_board_slots.agent_role = 'ready' THEN 0 ELSE 1 END")
+            ->orderByRaw('CASE WHEN dev_issues.user_in_charge_id IS NULL THEN 1 ELSE 0 END')
             ->orderBy('dev_issues.created_at')
             ->limit(12)
             ->get(['dev_issues.id', 'dev_issues.title', 'dev_issues.created_at', 'dev_issues.story_points', 'dev_boards.type as board_type', 'dev_boards.dev_package_id as pid'])
