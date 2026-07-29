@@ -106,7 +106,117 @@ class AgentController extends Controller
                 'package_name' => $package->name,
                 'github_repo' => $package->github_repo_full_name,
                 'labels' => $issue->labels,
+                // Kontext-Thread (Rückfragen/Antworten), falls der Worker Mitglied ist.
+                'thread' => $this->contextThread($issue, (int) $request->user()?->id),
             ],
+        ]);
+    }
+
+    /**
+     * Nachrichten des Context-Threads dieses Issues — nur wenn der Worker Mitglied ist.
+     * Liefert den bisherigen Rückfrage-/Antwort-Verlauf als Kontext fürs nächste Claimen.
+     *
+     * @return array<int, array{user_id:int, author:string, body:?string, at:?string}>|null
+     */
+    protected function contextThread(DevIssue $issue, int $workerId): ?array
+    {
+        if ($workerId < 1) {
+            return null;
+        }
+        $channel = \Platform\Core\Models\TerminalChannel::forTeam((int) $issue->team_id)
+            ->forContext(DevIssue::class, $issue->id)
+            ->first();
+        if (! $channel) {
+            return null;
+        }
+        $isMember = \Platform\Core\Models\TerminalChannelMember::where('channel_id', $channel->id)
+            ->where('user_id', $workerId)->exists();
+        if (! $isMember) {
+            return null;
+        }
+
+        return $channel->messages()
+            ->with('user:id,name')
+            ->orderBy('id')
+            ->limit(80)
+            ->get()
+            ->map(fn ($m) => [
+                'user_id' => (int) $m->user_id,
+                'author' => $m->user?->name ?? ('User #'.$m->user_id),
+                'body' => $m->body_plain,
+                'at' => optional($m->created_at)->toIso8601String(),
+            ])->values()->all();
+    }
+
+    /**
+     * Postet eine Nachricht in den Context-Thread des Issues (Thread anlegen, falls
+     * keiner da) — Absender = Worker, erwähnt IMMER den Verantwortlichen des Dev-
+     * Packages (DevPackage.user_in_charge_id; Fallback Package-/Issue-Ersteller).
+     */
+    protected function postToIssueThread(DevIssue $issue, int $senderId, string $body): void
+    {
+        $package = DevPackage::find((int) $issue->board?->dev_package_id);
+        $recipientId = (int) ($package?->user_in_charge_id ?: $package?->created_by_user_id ?: $issue->created_by_user_id);
+        $recipients = array_values(array_filter([$recipientId]));
+
+        app(\Platform\Core\Services\PostContextMessage::class)->post(
+            teamId: (int) $issue->team_id,
+            contextType: DevIssue::class,
+            contextId: $issue->id,
+            contextName: $issue->title ?: 'Issue',
+            senderId: $senderId,
+            body: $body,
+            memberIds: $recipients,
+            mentionUserIds: $recipients,
+        );
+    }
+
+    /**
+     * Rückfrage stellen: die Frage in den Context-Thread des Issues posten (Thread
+     * anlegen, falls keiner) — erwähnt den Package-Verantwortlichen — und das Issue
+     * in den human-Slot zurückstellen (Park). Reclaim macht der Mensch (zurück in Ready).
+     *
+     * POST /api/dev/agent/issues/{id}/ask  { question, branch? }
+     */
+    public function ask(Request $request, int $id): JsonResponse
+    {
+        $issue = DevIssue::find($id);
+        if (!$issue) {
+            return response()->json(['message' => 'Issue not found'], 404);
+        }
+        $data = $request->validate([
+            'question' => 'required|string|max:5000',
+            'branch' => 'nullable|string|max:255',
+        ]);
+        $question = $data['question'];
+
+        $this->postToIssueThread($issue, (int) $request->user()?->id, $question);
+
+        // Park: in den "Rückfrage"-Slot (agent_role=human) desselben Boards zurückstellen.
+        $humanSlot = DevBoardSlot::where('dev_board_id', $issue->dev_board_id)
+            ->where('agent_role', 'human')
+            ->orderBy('order')
+            ->first();
+        $update = [
+            'agent_summary' => 'RÜCKFRAGE: ' . $question,
+            'agent_locked_at' => null,
+            'agent_locked_by' => null,
+        ];
+        if ($humanSlot) {
+            $update['dev_board_slot_id'] = $humanSlot->id;
+        }
+        $issue->update($update);
+
+        $issue->logActivity("Agent hat eine Rückfrage im Kontext-Thread gestellt.\n\nFrage: {$question}", [
+            'source' => 'agent',
+            'status' => 'deferred',
+        ]);
+
+        Log::info('[Dev Agent] Rückfrage in Context-Thread', ['issue_id' => $issue->id, 'moved_to_slot' => $humanSlot?->id]);
+
+        return response()->json([
+            'message' => 'Question posted to context thread',
+            'data' => ['id' => $issue->id, 'moved_to_slot' => $humanSlot?->id],
         ]);
     }
 
@@ -155,6 +265,11 @@ class AgentController extends Controller
 
         // Close the issue
         $issue->close();
+
+        // Kurze Erledigt-Meldung in den Context-Thread (Thread anlegen, falls keiner) —
+        // erwähnt den Package-Verantwortlichen, auch ohne vorherige Rückfrage.
+        $doneNote = trim((string) $summary);
+        $this->postToIssueThread($issue, (int) $request->user()?->id, '✅ Erledigt'.($doneNote !== '' ? ': '.$doneNote : '.'));
 
         Log::info('[Dev Agent] Issue completed', [
             'issue_id' => $issue->id,
