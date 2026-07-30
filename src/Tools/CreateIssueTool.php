@@ -23,7 +23,7 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'POST /dev/issues - Erstellt ein neues Issue. Parameter: board_id (required), title (required). Optional: description (NICHT "content"), priority (low/normal/high), dev_board_slot_id, slot_order (Position im Slot, 0 = oberste; ohne Angabe wird ans Ende des Slots angehaengt — sequentielles Anlegen ergibt so eine stabile, aufsteigende Reihenfolge), labels, user_in_charge_id, due_date, story_points (xs/s/m/l/xl/xxl), dod_items (Array von {text, checked?} — NICHT "acceptance_criteria"). Fuer Umsortieren vorhandener Issues: dev.issues.reorder.';
+        return 'POST /dev/issues - Erstellt ein neues Issue. Parameter: board_id (required), title (required). Optional: description (NICHT "content"), priority (low/normal/high), dev_board_slot_id, labels, user_in_charge_id, due_date, story_points (xs/s/m/l/xl/xxl), dod_items (Array von {text, checked?} — NICHT "acceptance_criteria").';
     }
 
     public function getSchema(): array
@@ -54,10 +54,6 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
                 'dev_board_slot_id' => [
                     'type' => 'integer',
                     'description' => 'Optional: Slot-ID (Spalte). Null = Backlog.',
-                ],
-                'slot_order' => [
-                    'type' => 'integer',
-                    'description' => 'Optional: Position innerhalb des Slots (0 = oberste). Ohne Angabe wird das Issue ans Ende des Slots angehaengt.',
                 ],
                 'labels' => [
                     'type' => 'array',
@@ -100,7 +96,6 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
     private const PARAMETER_ALIASES = [
         'content' => 'description',
         'acceptance_criteria' => 'dod_items',
-        'position' => 'slot_order',
     ];
 
     /**
@@ -108,10 +103,10 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
      */
     private const KNOWN_PARAMETERS = [
         'team_id', 'board_id', 'title', 'description', 'priority',
-        'dev_board_slot_id', 'slot_order', 'labels', 'user_in_charge_id', 'due_date',
+        'dev_board_slot_id', 'labels', 'user_in_charge_id', 'due_date',
         'story_points', 'dod_items',
         // Aliases (resolved before execution)
-        'content', 'acceptance_criteria', 'position',
+        'content', 'acceptance_criteria',
         // Internal/meta fields
         '_write_confirmation',
     ];
@@ -132,7 +127,7 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
         // Detect unknown parameters
         $unknown = array_diff(array_keys($arguments), self::KNOWN_PARAMETERS);
         if (!empty($unknown)) {
-            $knownList = implode(', ', array_diff(self::KNOWN_PARAMETERS, ['_write_confirmation', 'content', 'acceptance_criteria', 'position']));
+            $knownList = implode(', ', array_diff(self::KNOWN_PARAMETERS, ['_write_confirmation', 'content', 'acceptance_criteria']));
             $warnings[] = 'Unbekannte Parameter ignoriert: ' . implode(', ', $unknown) . '. Erlaubte Parameter: ' . $knownList . '.';
         }
 
@@ -197,18 +192,6 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
             }
 
             $service = new DevIssueService();
-
-            // Position im Slot: explizit gesetzt oder ans Ende anhaengen,
-            // damit sequentielles Anlegen eine stabile Reihenfolge ergibt.
-            if (array_key_exists('slot_order', $arguments) && $arguments['slot_order'] !== null && $arguments['slot_order'] !== '') {
-                $data['slot_order'] = (int) $arguments['slot_order'];
-                $data['order'] = (int) $arguments['slot_order'];
-            } else {
-                $next = $service->nextSlotOrder($board->id, $data['dev_board_slot_id'] ?? null);
-                $data['slot_order'] = $next;
-                $data['order'] = $next;
-            }
-
             $issue = $service->createIssue($data);
 
             $result = [
@@ -220,7 +203,6 @@ class CreateIssueTool implements ToolContract, ToolMetadataContract
                     'status' => $issue->status,
                     'dev_board_id' => $issue->dev_board_id,
                     'dev_board_slot_id' => $issue->dev_board_slot_id,
-                    'slot_order' => $issue->slot_order,
                     'story_points' => $issue->story_points?->value,
                     'story_points_label' => $issue->story_points?->label(),
                     'story_points_numeric' => $issue->story_points?->points(),

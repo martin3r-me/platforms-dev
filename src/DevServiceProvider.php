@@ -162,7 +162,6 @@ class DevServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Dev\Tools\UpdateIssueTool());
             $registry->register(new \Platform\Dev\Tools\DeleteIssueTool());
             $registry->register(new \Platform\Dev\Tools\BulkCreateIssuesTool());
-            $registry->register(new \Platform\Dev\Tools\ReorderIssuesTool());
 
             // Discussion CRUD
             $registry->register(new \Platform\Dev\Tools\ListDiscussionsTool());

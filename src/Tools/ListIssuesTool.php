@@ -108,7 +108,6 @@ class ListIssuesTool implements ToolContract, ToolMetadataContract
                 'status' => $issue->status,
                 'dev_board_id' => $issue->dev_board_id,
                 'dev_board_slot_id' => $issue->dev_board_slot_id,
-                'slot_order' => $issue->slot_order,
                 'user_in_charge_id' => $issue->user_in_charge_id,
                 'labels' => $issue->labels,
                 'is_done' => $issue->is_done,

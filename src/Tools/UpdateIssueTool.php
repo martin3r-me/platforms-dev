@@ -23,7 +23,7 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'PUT /dev/issues/{id} - Aktualisiert ein Issue. Parameter: issue_id (required). Optional: title, description (NICHT "content"), priority, status, dev_board_slot_id, slot_order (Position im Slot, 0 = oberste; steuert die Reihenfolge innerhalb des Slots), labels, user_in_charge_id, due_date, is_done, story_points (xs/s/m/l/xl/xxl), dod_items (Array von {text, checked?} — NICHT "acceptance_criteria"), dod_items_update (granulare DOD-Ops). Zum Umsortieren mehrerer Issues auf einmal: dev.issues.reorder.';
+        return 'PUT /dev/issues/{id} - Aktualisiert ein Issue. Parameter: issue_id (required). Optional: title, description (NICHT "content"), priority, status, dev_board_slot_id, labels, user_in_charge_id, due_date, is_done, story_points (xs/s/m/l/xl/xxl), dod_items (Array von {text, checked?} — NICHT "acceptance_criteria"), dod_items_update (granulare DOD-Ops).';
     }
 
     public function getSchema(): array
@@ -59,10 +59,6 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
                 'dev_board_slot_id' => [
                     'type' => 'integer',
                     'description' => 'Optional: Neuer Slot (Spalte). Null = Backlog.',
-                ],
-                'slot_order' => [
-                    'type' => 'integer',
-                    'description' => 'Optional: Position innerhalb des Slots (0 = oberste). Steuert die Reihenfolge deterministisch.',
                 ],
                 'labels' => [
                     'type' => 'array',
@@ -161,7 +157,6 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
     private const PARAMETER_ALIASES = [
         'content' => 'description',
         'acceptance_criteria' => 'dod_items',
-        'position' => 'slot_order',
     ];
 
     /**
@@ -169,10 +164,10 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
      */
     private const KNOWN_PARAMETERS = [
         'team_id', 'issue_id', 'title', 'description', 'priority', 'status',
-        'dev_board_slot_id', 'slot_order', 'labels', 'user_in_charge_id', 'due_date',
+        'dev_board_slot_id', 'labels', 'user_in_charge_id', 'due_date',
         'is_done', 'story_points', 'dod_items', 'dod_items_update',
         // Aliases (resolved before execution)
-        'content', 'acceptance_criteria', 'position',
+        'content', 'acceptance_criteria',
         // Internal/meta fields
         '_write_confirmation',
     ];
@@ -196,7 +191,7 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
         // Detect unknown parameters
         $unknown = array_diff(array_keys($arguments), self::KNOWN_PARAMETERS);
         if (!empty($unknown)) {
-            $knownList = implode(', ', array_diff(self::KNOWN_PARAMETERS, ['_write_confirmation', 'content', 'acceptance_criteria', 'position']));
+            $knownList = implode(', ', array_diff(self::KNOWN_PARAMETERS, ['_write_confirmation', 'content', 'acceptance_criteria']));
             $warnings[] = 'Unbekannte Parameter ignoriert: ' . implode(', ', $unknown) . '. Erlaubte Parameter: ' . $knownList . '.';
         }
 
@@ -235,12 +230,6 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
 
             if (array_key_exists('labels', $arguments)) {
                 $payload['labels'] = $arguments['labels'];
-            }
-
-            // Position innerhalb des Slots (Spalte ist NOT NULL, daher Cast zu int)
-            if (array_key_exists('slot_order', $arguments) && $arguments['slot_order'] !== null && $arguments['slot_order'] !== '') {
-                $payload['slot_order'] = (int) $arguments['slot_order'];
-                $payload['order'] = (int) $arguments['slot_order'];
             }
 
             // Story Points
@@ -345,7 +334,6 @@ class UpdateIssueTool implements ToolContract, ToolMetadataContract
                     'status' => $issue->status,
                     'dev_board_id' => $issue->dev_board_id,
                     'dev_board_slot_id' => $issue->dev_board_slot_id,
-                    'slot_order' => $issue->slot_order,
                     'is_done' => $issue->is_done,
                     'story_points' => $issue->story_points?->value,
                     'story_points_label' => $issue->story_points?->label(),
