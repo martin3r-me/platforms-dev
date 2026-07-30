@@ -56,13 +56,11 @@ class AgentController extends Controller
                 if ($allowUnassigned) {
                     $q->orWhereNull('dev_issues.user_in_charge_id');
                 }
-            })
-            // Rückfragen warten auf eine Antwort des Menschen — nicht erneut claimen
-            // (sonst Endlos-Frageschleife, v. a. wenn Worker == Verantwortlicher).
-            ->where(function ($q) {
-                $q->whereNull('dev_issues.agent_summary')
-                  ->orWhere('dev_issues.agent_summary', 'not like', 'RÜCKFRAGE:%');
             });
+        // Wie im Planner: KEIN RÜCKFRAGE-Skip. Eine Rückfrage weist das Issue dem
+        // Verantwortlichen zu → es fällt automatisch aus assignedTo(worker). Kommt es
+        // (beantwortet) zurück an den Worker, ist es wieder claimbar; der Marker
+        // verschwindet beim complete (überschreibt agent_summary).
 
         // Filter by max story points (worker sends this from local config)
         $maxPoints = $request->input('max_story_points');
@@ -187,7 +185,8 @@ class AgentController extends Controller
     /**
      * Rückfrage stellen: die Frage in den Context-Thread des Issues posten (Thread
      * anlegen, falls keiner) — erwähnt den Package-Verantwortlichen — und das Issue
-     * in den human-Slot zurückstellen (Park). Reclaim macht der Mensch (zurück in Ready).
+     * dem Verantwortlichen zuweisen (Park). Damit fällt es aus assignedTo(worker).
+     * Reclaim: der Mensch weist den Verantwortlichen zurück auf den Worker.
      *
      * POST /api/dev/agent/issues/{id}/ask  { question, branch? }
      */
@@ -399,8 +398,8 @@ class AgentController extends Controller
     }
 
     /**
-     * Agent stellt eine Rückfrage und legt das Issue in den human-Slot zurück.
-     * Der Mensch beantwortet und schiebt es zurück nach Ready — dann greift der Worker erneut.
+     * Agent stellt eine Rückfrage und weist das Issue dem Verantwortlichen zu (Park).
+     * Der Mensch beantwortet und weist es zurück an den Worker — dann greift der Worker erneut.
      *
      * POST /api/dev/agent/issues/{id}/defer
      */
@@ -492,17 +491,10 @@ class AgentController extends Controller
         // das würde die Vorschau Tickets zeigen, die der Worker nie zieht.
         $allowUnassigned = $request->boolean('allow_unassigned');
         $claimable = function ($q) use ($workerId, $allowUnassigned) {
-            $q->where(function ($a) use ($workerId, $allowUnassigned) {
-                $a->where('dev_issues.user_in_charge_id', $workerId);
-                if ($allowUnassigned) {
-                    $a->orWhereNull('dev_issues.user_in_charge_id');
-                }
-            })
-            // Rückfragen sind nicht claimbar (warten auf den Menschen) — wie in nextIssue.
-            ->where(function ($p) {
-                $p->whereNull('dev_issues.agent_summary')
-                  ->orWhere('dev_issues.agent_summary', 'not like', 'RÜCKFRAGE:%');
-            });
+            $q->where('dev_issues.user_in_charge_id', $workerId);
+            if ($allowUnassigned) {
+                $q->orWhereNull('dev_issues.user_in_charge_id');
+            }
         };
 
         // Wie im Claim: keine Slot-Rollen mehr, es zählt der Verantwortliche.
@@ -530,8 +522,10 @@ class AgentController extends Controller
             $perPackage[$r->pid] = $pk;
         }
 
-        // Rückfragen: offene Issues mit RÜCKFRAGE-Marker (an den Verantwortlichen zurückgegeben).
-        foreach ($base()->where('dev_issues.agent_summary', 'like', 'RÜCKFRAGE:%')
+        // Rückfragen wie im Planner: NUR dem Worker zugewiesene Issues mit RÜCKFRAGE-Marker
+        // (nicht package-weit — sonst zählt es fremde/alte Rückfragen anderer mit).
+        foreach ($base()->where('dev_issues.user_in_charge_id', $workerId)
+            ->where('dev_issues.agent_summary', 'like', 'RÜCKFRAGE:%')
             ->selectRaw('dev_boards.dev_package_id as pid, count(*) as c')
             ->groupBy('dev_boards.dev_package_id')->get() as $r) {
             $perPackage[$r->pid]['rueckfragen'] += (int) $r->c;
