@@ -476,6 +476,13 @@ class AgentController extends Controller
     public function pipeline(Request $request): JsonResponse
     {
         $packages = DevPackage::agentEnabled()->get(['id', 'name', 'github_repo_full_name']);
+        // Package-Scope deckungsgleich mit dem Claim: schränkt der Worker per
+        // allowedPackages/Pin ein, sendet er die Namen mit → Vorschau zeigt nur diese.
+        // Ohne Scope (leer) = alle agent-freigegebenen (wie targetPackages ohne Pin).
+        $scope = array_values(array_filter((array) $request->input('packages', [])));
+        if ($scope) {
+            $packages = $packages->whereIn('name', $scope)->values();
+        }
         $ids = $packages->pluck('id')->all();
 
         $empty = ['bugs' => 0, 'features' => 0, 'ready' => 0, 'rueckfragen' => 0, 'oldest' => null];
