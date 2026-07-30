@@ -482,10 +482,20 @@ class AgentController extends Controller
      */
     public function clearRueckfragen(Request $request): JsonResponse
     {
+        // Diagnose: was sieht die Query überhaupt? (matched = LIKE-Treffer,
+        // any_summary = Issues mit irgendeinem agent_summary, sample = erste Werte gekürzt).
+        $matched = DevIssue::where('agent_summary', 'like', 'RÜCKFRAGE:%')->count();
+        $anySummary = DevIssue::whereNotNull('agent_summary')->count();
+        $sample = DevIssue::whereNotNull('agent_summary')
+            ->orderByDesc('id')->limit(6)->pluck('agent_summary')
+            ->map(fn ($s) => mb_substr((string) $s, 0, 24))->all();
+
         $n = DevIssue::where('agent_summary', 'like', 'RÜCKFRAGE:%')
             ->update(['agent_summary' => null]);
 
-        return response()->json(['message' => 'cleared', 'data' => ['cleared' => $n]]);
+        return response()->json(['message' => 'cleared', 'data' => [
+            'matched' => $matched, 'cleared' => $n, 'any_summary' => $anySummary, 'sample' => $sample,
+        ]]);
     }
 
     public function pipeline(Request $request): JsonResponse
