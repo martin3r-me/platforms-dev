@@ -166,6 +166,29 @@ class AgentController extends Controller
         return $id > 0 ? $id : null;
     }
 
+    /**
+     * Erfolgsmeldung zustellen: existiert schon ein Kontext-Thread (es lief eine
+     * Rückfrage) → dort rein (Kreis schließen). Sonst DM an den Package-
+     * Verantwortlichen — für ein einmaliges „fertig" lohnt kein neuer Thread.
+     */
+    protected function announceCompletion(DevIssue $issue, int $senderId, string $body): void
+    {
+        $hasThread = \Platform\Core\Models\TerminalChannel::forTeam((int) $issue->team_id)
+            ->forContext(DevIssue::class, $issue->id)
+            ->exists();
+
+        if ($hasThread) {
+            $this->postToIssueThread($issue, $senderId, $body);
+
+            return;
+        }
+
+        if ($recipient = $this->packageResponsibleId($issue)) {
+            app(\Platform\Core\Services\PostDirectMessage::class)
+                ->post((int) $issue->team_id, $senderId, $recipient, $body);
+        }
+    }
+
     protected function postToIssueThread(DevIssue $issue, int $senderId, string $body): void
     {
         $recipients = array_values(array_filter([$this->packageResponsibleId($issue)]));
@@ -273,10 +296,11 @@ class AgentController extends Controller
         // Close the issue
         $issue->close();
 
-        // Kurze Erledigt-Meldung in den Context-Thread (Thread anlegen, falls keiner) —
-        // erwähnt den Package-Verantwortlichen, auch ohne vorherige Rückfrage.
+        // Erledigt-Meldung: existiert schon ein Rückfrage-Thread → dort (Kreis schließen),
+        // sonst DM an den Package-Verantwortlichen. Für „fertig" lohnt kein neuer Thread.
         $doneNote = trim((string) $summary);
-        $this->postToIssueThread($issue, (int) $request->user()?->id, '✅ Erledigt'.($doneNote !== '' ? ': '.$doneNote : '.'));
+        $body = '✅ Erledigt: '.($issue->title ?: 'Issue').($doneNote !== '' ? "\n\n".$doneNote : '');
+        $this->announceCompletion($issue, (int) $request->user()?->id, $body);
 
         Log::info('[Dev Agent] Issue completed', [
             'issue_id' => $issue->id,
