@@ -481,6 +481,17 @@ class AgentController extends Controller
         $workerId = (int) $request->user()?->id;
         $stale = now()->subMinutes(30);
 
+        // Deckungsgleich mit dem echten Claim (nextIssue): nur der Verantwortliche,
+        // und NUR bei gesetztem Worker-Setting zusätzlich der unzugewiesene Pool. Ohne
+        // das würde die Vorschau Tickets zeigen, die der Worker nie zieht.
+        $allowUnassigned = $request->boolean('allow_unassigned');
+        $claimable = function ($q) use ($workerId, $allowUnassigned) {
+            $q->where('dev_issues.user_in_charge_id', $workerId);
+            if ($allowUnassigned) {
+                $q->orWhereNull('dev_issues.user_in_charge_id');
+            }
+        };
+
         // Wie im Claim: keine Slot-Rollen mehr, es zählt der Verantwortliche.
         $base = fn () => DevIssue::query()
             ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
@@ -513,9 +524,9 @@ class AgentController extends Controller
             $perPackage[$r->pid]['rueckfragen'] += (int) $r->c;
         }
 
-        // Ready = für DIESEN Worker claimbar: ihm zugewiesen ODER unzugewiesen, nicht gesperrt.
+        // Ready = für DIESEN Worker claimbar (nach seinem claim_unassigned-Setting), nicht gesperrt.
         foreach ($base()
-            ->where(fn ($q) => $q->where('dev_issues.user_in_charge_id', $workerId)->orWhereNull('dev_issues.user_in_charge_id'))
+            ->where($claimable)
             ->where(fn ($q) => $q->whereNull('dev_issues.agent_locked_at')->orWhere('dev_issues.agent_locked_at', '<', $stale))
             ->selectRaw('dev_boards.dev_package_id as pid, count(*) as c')
             ->groupBy('dev_boards.dev_package_id')->get() as $r) {
@@ -537,7 +548,7 @@ class AgentController extends Controller
         $nameById = $packages->keyBy('id');
         $nextUp = $base()
             ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
-            ->where(fn ($q) => $q->where('dev_issues.user_in_charge_id', $workerId)->orWhereNull('dev_issues.user_in_charge_id'))
+            ->where($claimable)
             ->where(fn ($q) => $q->whereNull('dev_issues.agent_locked_at')->orWhere('dev_issues.agent_locked_at', '<', $stale))
             ->orderBy('dev_boards.order')
             ->orderByRaw('dev_board_slots.order IS NULL')
