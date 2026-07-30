@@ -473,6 +473,24 @@ class AgentController extends Controller
      *
      * GET /api/dev/agent/pipeline
      */
+    /**
+     * TEMP-Wartung (einmalig): löscht die RÜCKFRAGE-Marker der dem AUFRUFENDEN Worker
+     * zugewiesenen Issues (räumt Altlasten aus dem Postfach). Nicht-destruktiv — die
+     * Issues bleiben, nur `agent_summary` wird geleert. Kann fremde Issues nicht
+     * treffen (Filter user_in_charge_id = Worker). Nach Gebrauch Route+Methode raus.
+     *
+     * POST /api/dev/agent/clear-rueckfragen
+     */
+    public function clearRueckfragen(Request $request): JsonResponse
+    {
+        $userId = (int) $request->user()?->id;
+        $n = DevIssue::where('user_in_charge_id', $userId)
+            ->where('agent_summary', 'like', 'RÜCKFRAGE:%')
+            ->update(['agent_summary' => null]);
+
+        return response()->json(['message' => 'cleared', 'data' => ['cleared' => $n]]);
+    }
+
     public function pipeline(Request $request): JsonResponse
     {
         $packages = DevPackage::agentEnabled()->get(['id', 'name', 'github_repo_full_name']);

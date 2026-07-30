@@ -32,4 +32,8 @@ Route::prefix('dev/agent')->middleware('auth:api')->group(function () {
         ->name('dev.api.agent.ask');
     Route::post('/issues/{id}/unlock', [AgentController::class, 'unlock'])
         ->name('dev.api.agent.unlock');
+    // TEMP-Wartung (einmalig, danach wieder entfernen): Altlast-RÜCKFRAGE-Marker
+    // des aufrufenden Workers löschen.
+    Route::post('/clear-rueckfragen', [AgentController::class, 'clearRueckfragen'])
+        ->name('dev.api.agent.clear-rueckfragen');
 });
