@@ -21,7 +21,6 @@ class DevServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Platform\Dev\Console\Commands\BuildPackageSnapshotsCommand::class,
-                \Platform\Dev\Console\Commands\BackfillSlotRolesCommand::class,
             ]);
 
             // Scheduler: nightly Package-Snapshots

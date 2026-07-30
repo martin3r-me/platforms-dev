@@ -56,6 +56,12 @@ class AgentController extends Controller
                 if ($allowUnassigned) {
                     $q->orWhereNull('dev_issues.user_in_charge_id');
                 }
+            })
+            // Rückfragen warten auf eine Antwort des Menschen — nicht erneut claimen
+            // (sonst Endlos-Frageschleife, v. a. wenn Worker == Verantwortlicher).
+            ->where(function ($q) {
+                $q->whereNull('dev_issues.agent_summary')
+                  ->orWhere('dev_issues.agent_summary', 'not like', 'RÜCKFRAGE:%');
             });
 
         // Filter by max story points (worker sends this from local config)
@@ -486,10 +492,17 @@ class AgentController extends Controller
         // das würde die Vorschau Tickets zeigen, die der Worker nie zieht.
         $allowUnassigned = $request->boolean('allow_unassigned');
         $claimable = function ($q) use ($workerId, $allowUnassigned) {
-            $q->where('dev_issues.user_in_charge_id', $workerId);
-            if ($allowUnassigned) {
-                $q->orWhereNull('dev_issues.user_in_charge_id');
-            }
+            $q->where(function ($a) use ($workerId, $allowUnassigned) {
+                $a->where('dev_issues.user_in_charge_id', $workerId);
+                if ($allowUnassigned) {
+                    $a->orWhereNull('dev_issues.user_in_charge_id');
+                }
+            })
+            // Rückfragen sind nicht claimbar (warten auf den Menschen) — wie in nextIssue.
+            ->where(function ($p) {
+                $p->whereNull('dev_issues.agent_summary')
+                  ->orWhere('dev_issues.agent_summary', 'not like', 'RÜCKFRAGE:%');
+            });
         };
 
         // Wie im Claim: keine Slot-Rollen mehr, es zählt der Verantwortliche.

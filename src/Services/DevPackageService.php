@@ -14,11 +14,11 @@ class DevPackageService
      * keine Rolle (Worker ignoriert es).
      */
     public const DEFAULT_SLOTS = [
-        ['name' => 'Backlog',   'role' => null],
-        ['name' => 'Ready',     'role' => 'ready'],
-        ['name' => 'In Arbeit', 'role' => 'working'],
-        ['name' => 'Rückfrage', 'role' => 'human'],
-        ['name' => 'Fertig',    'role' => 'done'],
+        ['name' => 'Backlog'],
+        ['name' => 'Ready'],
+        ['name' => 'In Arbeit'],
+        ['name' => 'Rückfrage'],
+        ['name' => 'Fertig'],
     ];
 
     public function activate(array $data): DevPackage
@@ -102,7 +102,6 @@ class DevPackageService
                 'dev_board_id' => $board->id,
                 'name' => $slot['name'],
                 'order' => $order,
-                'agent_role' => $slot['role'],
             ]);
         }
     }
