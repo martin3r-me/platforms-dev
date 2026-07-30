@@ -66,6 +66,19 @@ class DevIssue extends Model
                 $model->uuid = $uuid;
             }
         });
+
+        // Rückfrage-Rückweg (manuell): wird der Verantwortliche NEU gesetzt, während
+        // ein RÜCKFRAGE-Marker bereits STAND (agent_summary nicht im selben Update
+        // geändert — sonst wäre es der ask-Flow selbst), gilt die Frage als übergeben.
+        // Marker löschen → der Worker darf das Issue wieder claimen (Skip-Filter greift
+        // nicht mehr). So schließt sich der Kreislauf ohne Automatik beim Antworten.
+        static::updating(function (self $model) {
+            if ($model->isDirty('user_in_charge_id')
+                && ! $model->isDirty('agent_summary')
+                && str_starts_with((string) $model->agent_summary, 'RÜCKFRAGE:')) {
+                $model->agent_summary = null;
+            }
+        });
     }
 
     public function board(): BelongsTo
