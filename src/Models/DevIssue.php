@@ -42,6 +42,8 @@ class DevIssue extends Model
         'agent_branch',
         'agent_completed_at',
         'agent_summary',
+        'agent_waiting_at',
+        'agent_session_id',
     ];
 
     protected $casts = [
@@ -54,6 +56,7 @@ class DevIssue extends Model
         'due_date' => 'date',
         'agent_locked_at' => 'datetime',
         'agent_completed_at' => 'datetime',
+        'agent_waiting_at' => 'datetime',
     ];
 
     protected static function booted(): void

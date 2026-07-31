@@ -5,6 +5,7 @@ namespace Platform\Dev\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Platform\Dev\Enums\IssueStoryPoints;
 use Platform\Dev\Models\DevIssue;
@@ -39,6 +40,19 @@ class AgentController extends Controller
         $workerId = (int) $request->user()?->id;
         $allowUnassigned = $request->boolean('allow_unassigned');
 
+        // Resume-First: hat ein wartendes Issue dieses Workers eine Antwort im Thread
+        // bekommen? Dann DIESES zuerst — die geparkte Session wird fortgesetzt (Antwort
+        // steckt im mitgelieferten Thread), statt neue Arbeit zu ziehen.
+        if ($workerId > 0 && ($resume = $this->resumableIssue($package, $workerId))) {
+            $resume->update([
+                'agent_waiting_at' => null,
+                'agent_locked_at' => now(),
+                'agent_locked_by' => 'worker:' . $slug,
+            ]);
+
+            return response()->json(['data' => $this->issuePayload($resume, $package, (int) $request->user()?->id, true)]);
+        }
+
         $query = DevIssue::query()
             ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
             ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
@@ -47,6 +61,9 @@ class AgentController extends Controller
             ->whereIn('dev_boards.type', ['bug', 'feature'])
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false)
+            // Auf Antwort wartende Rückfragen überspringen (der Resume-Pass oben holt sie,
+            // sobald geantwortet wurde) — nicht als „normale“ Arbeit erneut ziehen.
+            ->whereNull('dev_issues.agent_waiting_at')
             ->where(function ($q) {
                 $q->whereNull('dev_issues.agent_locked_at')
                   ->orWhere('dev_issues.agent_locked_at', '<', now()->subMinutes(30));
@@ -96,24 +113,68 @@ class AgentController extends Controller
             'agent_locked_by' => 'worker:' . $slug,
         ]);
 
-        return response()->json([
-            'data' => [
-                'id' => $issue->id,
-                'uuid' => $issue->uuid,
-                'title' => $issue->title,
-                'description' => $issue->description,
-                'priority' => $issue->priority?->value ?? $issue->priority,
-                'acceptance_criteria' => $issue->acceptance_criteria,
-                'dev_board_id' => $issue->dev_board_id,
-                'board_type' => $issue->board_type, // bug | feature — für den Feature-Sweep im Worker
-                'dev_package_id' => $package->id,
-                'package_name' => $package->name,
-                'github_repo' => $package->github_repo_full_name,
-                'labels' => $issue->labels,
-                // Kontext-Thread (Rückfragen/Antworten), falls der Worker Mitglied ist.
-                'thread' => $this->contextThread($issue, (int) $request->user()?->id),
-            ],
-        ]);
+        return response()->json(['data' => $this->issuePayload($issue, $package, (int) $request->user()?->id)]);
+    }
+
+    /**
+     * Einheitliches Issue-Payload für Claim + Resume. Bei $resume=true weiß der Worker,
+     * dass er die gemerkte Claude-Session fortsetzt (die Antwort steckt im `thread`).
+     *
+     * @return array<string, mixed>
+     */
+    protected function issuePayload(DevIssue $issue, DevPackage $package, int $workerId, bool $resume = false): array
+    {
+        return [
+            'id' => $issue->id,
+            'uuid' => $issue->uuid,
+            'title' => $issue->title,
+            'description' => $issue->description,
+            'priority' => $issue->priority?->value ?? $issue->priority,
+            'acceptance_criteria' => $issue->acceptance_criteria,
+            'dev_board_id' => $issue->dev_board_id,
+            'board_type' => $issue->board_type ?? null, // bug | feature — für den Feature-Sweep im Worker
+            'dev_package_id' => $package->id,
+            'package_name' => $package->name,
+            'github_repo' => $package->github_repo_full_name,
+            'labels' => $issue->labels,
+            // Kontext-Thread (Rückfragen/Antworten), falls der Worker Mitglied ist.
+            'thread' => $this->contextThread($issue, $workerId),
+            // Resume-Signal: gemerkte Session + Branch → Worker setzt fort statt neu.
+            'resume' => $resume,
+            'agent_session_id' => $resume ? $issue->agent_session_id : null,
+            'agent_branch' => $resume ? $issue->agent_branch : null,
+        ];
+    }
+
+    /**
+     * Ein wartendes (agent_waiting_at) Issue dieses Workers, das seit dem Warten eine
+     * Antwort im Kontext-Thread von jemand anderem bekommen hat — in Board-Reihenfolge.
+     * Nur bug/feature-Boards des Packages, agent-freigegeben.
+     */
+    protected function resumableIssue(DevPackage $package, int $workerId): ?DevIssue
+    {
+        return DevIssue::query()
+            ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
+            ->whereNull('dev_boards.deleted_at')
+            ->where('dev_boards.dev_package_id', $package->id)
+            ->whereIn('dev_boards.type', ['bug', 'feature'])
+            ->where('dev_issues.status', 'open')
+            ->where('dev_issues.is_done', false)
+            ->where('dev_issues.user_in_charge_id', $workerId)
+            ->whereNotNull('dev_issues.agent_waiting_at')
+            ->whereExists(function ($q) use ($workerId) {
+                $q->select(DB::raw(1))
+                    ->from('terminal_messages as tm')
+                    ->join('terminal_channels as tc', 'tm.channel_id', '=', 'tc.id')
+                    ->whereColumn('tc.context_id', 'dev_issues.id')
+                    ->where('tc.context_type', DevIssue::class)
+                    ->where('tm.user_id', '!=', $workerId)
+                    ->whereColumn('tm.created_at', '>', 'dev_issues.agent_waiting_at');
+            })
+            ->orderBy('dev_boards.order')
+            ->orderBy('dev_issues.agent_waiting_at')
+            ->select('dev_issues.*', 'dev_boards.type as board_type')
+            ->first();
     }
 
     /**
@@ -222,16 +283,20 @@ class AgentController extends Controller
         $data = $request->validate([
             'question' => 'required|string|max:5000',
             'branch' => 'nullable|string|max:255',
+            'session_id' => 'nullable|string|max:255',
         ]);
         $question = $data['question'];
 
         $this->postToIssueThread($issue, (int) $request->user()?->id, $question);
 
-        // Park wie im Planner: dem Package-Verantwortlichen zuweisen → raus aus der
-        // Worker-Queue (nicht mehr ihm zugewiesen, nicht unzugewiesen). Reclaim macht
-        // der Mensch, indem er den Verantwortlichen wieder auf den Worker setzt.
+        // Warten auf Antwort statt zurück-delegieren: Owner bleibt der Worker, das
+        // Issue geht in den Warten-Zustand (agent_waiting_at) → der Claim überspringt
+        // es, solange keine Antwort im Thread steht. Die Claude-Session wird gemerkt,
+        // damit die Antwort sie per --resume fortsetzt (kein Ping-Pong, kein Neuanfang).
         $issue->update([
-            'user_in_charge_id' => $this->packageResponsibleId($issue) ?? $issue->user_in_charge_id,
+            'agent_waiting_at' => now(),
+            'agent_session_id' => $data['session_id'] ?? $issue->agent_session_id,
+            'agent_branch' => $data['branch'] ?? $issue->agent_branch,
             'agent_summary' => 'RÜCKFRAGE: ' . $question,
             'agent_locked_at' => null,
             'agent_locked_by' => null,
@@ -271,13 +336,16 @@ class AgentController extends Controller
         $branch = $data['branch'] ?? null;
         $summary = $data['summary'] ?? null;
 
-        // Store agent metadata
+        // Store agent metadata — und Warten-Zustand/Session aufräumen (erledigt = nichts
+        // mehr offen zum Fortsetzen).
         $issue->update([
             'agent_branch' => $branch,
             'agent_summary' => $summary,
             'agent_completed_at' => now(),
             'agent_locked_at' => null,
             'agent_locked_by' => null,
+            'agent_waiting_at' => null,
+            'agent_session_id' => null,
         ]);
 
         // Log activity on the issue (visible in UI activity feed)
@@ -438,14 +506,17 @@ class AgentController extends Controller
         $data = $request->validate([
             'question' => 'required|string|max:5000',
             'branch' => 'nullable|string|max:255',
+            'session_id' => 'nullable|string|max:255',
         ]);
         $question = $data['question'];
 
-        // Park wie ask/Planner: dem Package-Verantwortlichen zuweisen (raus aus der
-        // Worker-Queue), Lock lösen. Keine Slot-Rollen mehr. (Legacy — der Worker
-        // nutzt jetzt ask; hier kein Thread-Post.)
+        // Warten auf Antwort statt zurück-delegieren (siehe ask()): Owner bleibt der
+        // Worker, Warten-Zustand + Session merken. (Legacy — der Worker nutzt jetzt
+        // ask; hier kein Thread-Post.)
         $issue->update([
-            'user_in_charge_id' => $this->packageResponsibleId($issue) ?? $issue->user_in_charge_id,
+            'agent_waiting_at' => now(),
+            'agent_session_id' => $data['session_id'] ?? $issue->agent_session_id,
+            'agent_branch' => $data['branch'] ?? $issue->agent_branch,
             'agent_summary' => 'RÜCKFRAGE: ' . $question,
             'agent_locked_at' => null,
             'agent_locked_by' => null,
@@ -553,18 +624,21 @@ class AgentController extends Controller
             $perPackage[$r->pid] = $pk;
         }
 
-        // Rückfragen wie im Planner: NUR dem Worker zugewiesene Issues mit RÜCKFRAGE-Marker
-        // (nicht package-weit — sonst zählt es fremde/alte Rückfragen anderer mit).
+        // Rückfragen = wartet auf Antwort: dem Worker zugewiesene Issues im Warten-Zustand
+        // (agent_waiting_at). Owner bleibt der Worker — der explizite Zustand ist die Quelle,
+        // nicht mehr ein Marker im Text.
         foreach ($base()->where('dev_issues.user_in_charge_id', $workerId)
-            ->where('dev_issues.agent_summary', 'like', 'RÜCKFRAGE:%')
+            ->whereNotNull('dev_issues.agent_waiting_at')
             ->selectRaw('dev_boards.dev_package_id as pid, count(*) as c')
             ->groupBy('dev_boards.dev_package_id')->get() as $r) {
             $perPackage[$r->pid]['rueckfragen'] += (int) $r->c;
         }
 
-        // Ready = für DIESEN Worker claimbar (nach seinem claim_unassigned-Setting), nicht gesperrt.
+        // Ready = für DIESEN Worker claimbar (nach seinem claim_unassigned-Setting), nicht
+        // gesperrt, nicht auf Antwort wartend.
         foreach ($base()
             ->where($claimable)
+            ->whereNull('dev_issues.agent_waiting_at')
             ->where(fn ($q) => $q->whereNull('dev_issues.agent_locked_at')->orWhere('dev_issues.agent_locked_at', '<', $stale))
             ->selectRaw('dev_boards.dev_package_id as pid, count(*) as c')
             ->groupBy('dev_boards.dev_package_id')->get() as $r) {
