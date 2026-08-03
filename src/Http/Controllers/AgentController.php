@@ -182,18 +182,8 @@ class AgentController extends Controller
                 }
             });
 
-        $maxPoints = $request->input('max_story_points');
-        if ($maxPoints !== null) {
-            $allowed = collect(IssueStoryPoints::cases())
-                ->filter(fn ($sp) => $sp->points() <= (int) $maxPoints)
-                ->pluck('value')
-                ->all();
-            // Ungeschätzte (null) IMMER zulassen — Story-Points zu setzen ist Teil der Triage.
-            $query->where(function ($q) use ($allowed) {
-                $q->whereNull('dev_issues.story_points')
-                  ->orWhereIn('dev_issues.story_points', $allowed);
-            });
-        }
+        // KEIN Story-Points-Filter: die Triage SCHÄTZT die Größe — sie darf große Items nicht
+        // überspringen. Das max_story_points-Limit ist ein Execute-Konzept, kein Triage-Konzept.
 
         $issue = $query
             ->orderBy('dev_boards.order')
