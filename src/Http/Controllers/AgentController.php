@@ -39,10 +39,10 @@ class AgentController extends Controller
         //  - offen, nicht erledigt, nicht (frisch) gesperrt
         $workerId = (int) $request->user()?->id;
         $allowUnassigned = $request->boolean('allow_unassigned');
-        // Opt-in-Gate: verlangt der Worker eine vorgeschaltete Triage, zieht er nur bereits
-        // triagierte Issues (triage_done_at gesetzt). Der Triage-Worker füllt diesen Zustand
-        // über den /triage-Endpoint. Default aus → unverändertes Verhalten.
-        $requireTriage = $request->boolean('require_triage');
+        // Gate an der QUELLE: verlangt das Package Triage, zieht die Ausführung nur bereits
+        // triagierte Issues (triage_done_at gesetzt). Eigenschaft des Eingangs, nicht des
+        // Workers. Default false → unverändertes Verhalten für strukturierte Packages.
+        $requireTriage = (bool) $package->require_triage;
 
         // Resume-First: hat ein wartendes Issue dieses Workers eine Antwort im Thread
         // bekommen? Dann DIESES zuerst — die geparkte Session wird fortgesetzt (Antwort
@@ -140,6 +140,11 @@ class AgentController extends Controller
         }
         if (!$package->agent_enabled) {
             return response()->json(['message' => 'Package not released for agent'], 403);
+        }
+        // Triage ist eine Eigenschaft der Quelle: verlangt das Package keine Triage, gibt es
+        // hier nichts zu tun (der Reife-Check würde nur Läufe verbrennen).
+        if (!$package->require_triage) {
+            return response()->json(null, 204);
         }
 
         $workerId = (int) $request->user()?->id;

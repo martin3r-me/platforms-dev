@@ -210,6 +210,15 @@
                             <span class="block text-xs text-gray-500">Der autonome Worker darf Issues dieses Packages ziehen und bearbeiten.</span>
                         </span>
                     </label>
+
+                    <label class="flex items-start gap-3 cursor-pointer rounded-md border border-gray-200 p-3 hover:bg-gray-50 transition-colors">
+                        <input type="checkbox" wire:model="editPackageRequireTriage"
+                               class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#238636] focus:ring-[#238636]">
+                        <span>
+                            <span class="block text-sm font-medium text-gray-800">✅ Triage-Pflicht</span>
+                            <span class="block text-xs text-gray-500">Issues werden erst nach einem Reife-Check (Story-Points + Inhalt) durch die Triage-Rolle bearbeitet. Für sauber gepflegte Packages aus lassen.</span>
+                        </span>
+                    </label>
                 </div>
                 <x-slot name="footer">
                     <div class="flex justify-end gap-3">

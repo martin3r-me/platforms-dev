@@ -34,6 +34,7 @@ class Show extends Component
     public ?int $editPackageUserInChargeId = null;
     public string $editPackageIcon = '';
     public bool $editPackageAgentEnabled = false;
+    public bool $editPackageRequireTriage = false;
 
     public function mount(DevPackage $package): void
     {
@@ -47,6 +48,7 @@ class Show extends Component
         $this->editPackageUserInChargeId = $this->package->user_in_charge_id;
         $this->editPackageIcon = $this->package->icon ?? '';
         $this->editPackageAgentEnabled = (bool) $this->package->agent_enabled;
+        $this->editPackageRequireTriage = (bool) $this->package->require_triage;
         $this->editingPackage = true;
     }
 
@@ -62,6 +64,7 @@ class Show extends Component
             'user_in_charge_id' => $this->editPackageUserInChargeId ?: null,
             'icon' => trim($this->editPackageIcon) ?: null,
             'agent_enabled' => $this->editPackageAgentEnabled,
+            'require_triage' => $this->editPackageRequireTriage,
         ]);
 
         $this->package->refresh();

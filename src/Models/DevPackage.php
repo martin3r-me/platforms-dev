@@ -35,6 +35,7 @@ class DevPackage extends Model implements HasChildContextRelations
         'github_repo_id',
         'status',
         'agent_enabled',
+        'require_triage',
         'icon',
         'order',
     ];
@@ -42,6 +43,7 @@ class DevPackage extends Model implements HasChildContextRelations
     protected $casts = [
         'locked_at' => 'datetime',
         'agent_enabled' => 'boolean',
+        'require_triage' => 'boolean',
     ];
 
     protected static function booted(): void
