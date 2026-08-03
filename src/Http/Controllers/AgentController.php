@@ -39,11 +39,16 @@ class AgentController extends Controller
         //  - offen, nicht erledigt, nicht (frisch) gesperrt
         $workerId = (int) $request->user()?->id;
         $allowUnassigned = $request->boolean('allow_unassigned');
+        // Opt-in-Gate: verlangt der Worker eine vorgeschaltete Triage, zieht er nur bereits
+        // triagierte Issues (triage_done_at gesetzt). Der Triage-Worker füllt diesen Zustand
+        // über den /triage-Endpoint. Default aus → unverändertes Verhalten.
+        $requireTriage = $request->boolean('require_triage');
 
         // Resume-First: hat ein wartendes Issue dieses Workers eine Antwort im Thread
         // bekommen? Dann DIESES zuerst — die geparkte Session wird fortgesetzt (Antwort
-        // steckt im mitgelieferten Thread), statt neue Arbeit zu ziehen.
-        if ($workerId > 0 && ($resume = $this->resumableIssue($package, $workerId))) {
+        // steckt im mitgelieferten Thread), statt neue Arbeit zu ziehen. Bei require_triage
+        // nur bereits triagierte (eine offene Triage-Rückfrage holt der Triage-Claim).
+        if ($workerId > 0 && ($resume = $this->resumableIssue($package, $workerId, $requireTriage))) {
             $resume->update([
                 'agent_waiting_at' => null,
                 'agent_locked_at' => now(),
@@ -74,6 +79,9 @@ class AgentController extends Controller
                     $q->orWhereNull('dev_issues.user_in_charge_id');
                 }
             });
+        if ($requireTriage) {
+            $query->whereNotNull('dev_issues.triage_done_at');
+        }
         // Wie im Planner: KEIN RÜCKFRAGE-Skip. Eine Rückfrage weist das Issue dem
         // Verantwortlichen zu → es fällt automatisch aus assignedTo(worker). Kommt es
         // (beantwortet) zurück an den Worker, ist es wieder claimbar; der Marker
@@ -117,6 +125,195 @@ class AgentController extends Controller
     }
 
     /**
+     * Triage-Claim: nächstes NOCH UNGEPRÜFTES Issue (triage_done_at NULL) eines Packages —
+     * für die Reife-Prüfung (Story-Points + Inhalt) vor der Ausführung. Reihenfolge und
+     * Zuweisungs-/Lock-Logik wie nextIssue, nur gefiltert auf ungeprüft. Resume-First holt
+     * eine beantwortete Triage-Rückfrage zuerst (der Reife-Check läuft dann erneut).
+     *
+     * POST /api/dev/agent/packages/{slug}/next-untriaged
+     */
+    public function nextUntriaged(Request $request, string $slug): JsonResponse
+    {
+        $package = $this->resolvePackage($slug);
+        if (!$package) {
+            return response()->json(['message' => 'Package not found'], 404);
+        }
+        if (!$package->agent_enabled) {
+            return response()->json(['message' => 'Package not released for agent'], 403);
+        }
+
+        $workerId = (int) $request->user()?->id;
+        $allowUnassigned = $request->boolean('allow_unassigned');
+
+        // Resume-First: eine beantwortete Triage-Rückfrage (noch ungeprüft) zuerst.
+        if ($workerId > 0 && ($resume = $this->resumableUntriaged($package, $workerId))) {
+            $resume->update([
+                'agent_waiting_at' => null,
+                'agent_locked_at' => now(),
+                'agent_locked_by' => 'triage:' . $slug,
+            ]);
+
+            return response()->json(['data' => $this->issuePayload($resume, $package, $workerId, true)]);
+        }
+
+        $query = DevIssue::query()
+            ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
+            ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
+            ->whereNull('dev_boards.deleted_at')
+            ->where('dev_boards.dev_package_id', $package->id)
+            ->whereIn('dev_boards.type', ['bug', 'feature'])
+            ->where('dev_issues.status', 'open')
+            ->where('dev_issues.is_done', false)
+            ->whereNull('dev_issues.triage_done_at')       // noch ungeprüft
+            ->whereNull('dev_issues.agent_waiting_at')      // offene Rückfrage holt der Resume-Pass
+            ->where(function ($q) {
+                $q->whereNull('dev_issues.agent_locked_at')
+                  ->orWhere('dev_issues.agent_locked_at', '<', now()->subMinutes(30));
+            })
+            ->where(function ($q) use ($workerId, $allowUnassigned) {
+                $q->where('dev_issues.user_in_charge_id', $workerId);
+                if ($allowUnassigned) {
+                    $q->orWhereNull('dev_issues.user_in_charge_id');
+                }
+            });
+
+        $maxPoints = $request->input('max_story_points');
+        if ($maxPoints !== null) {
+            $allowed = collect(IssueStoryPoints::cases())
+                ->filter(fn ($sp) => $sp->points() <= (int) $maxPoints)
+                ->pluck('value')
+                ->all();
+            // Ungeschätzte (null) IMMER zulassen — Story-Points zu setzen ist Teil der Triage.
+            $query->where(function ($q) use ($allowed) {
+                $q->whereNull('dev_issues.story_points')
+                  ->orWhereIn('dev_issues.story_points', $allowed);
+            });
+        }
+
+        $issue = $query
+            ->orderBy('dev_boards.order')
+            ->orderByRaw('dev_board_slots.order IS NULL')
+            ->orderBy('dev_board_slots.order')
+            ->orderBy('dev_issues.slot_order')
+            ->orderBy('dev_issues.created_at')
+            ->select('dev_issues.*', 'dev_boards.type as board_type')
+            ->first();
+
+        if (!$issue) {
+            return response()->json(null, 204);
+        }
+
+        $issue->update([
+            'agent_locked_at' => now(),
+            'agent_locked_by' => 'triage:' . $slug,
+        ]);
+
+        return response()->json(['data' => $this->issuePayload($issue, $package, $workerId)]);
+    }
+
+    /**
+     * Ein noch UNGEPRÜFTES (triage_done_at NULL) wartendes Issue dieses Workers, das seit dem
+     * Warten eine Antwort im Kontext-Thread bekommen hat — für das Fortsetzen des Reife-Checks.
+     */
+    protected function resumableUntriaged(DevPackage $package, int $workerId): ?DevIssue
+    {
+        return DevIssue::query()
+            ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
+            ->whereNull('dev_boards.deleted_at')
+            ->where('dev_boards.dev_package_id', $package->id)
+            ->whereIn('dev_boards.type', ['bug', 'feature'])
+            ->where('dev_issues.status', 'open')
+            ->where('dev_issues.is_done', false)
+            ->where('dev_issues.user_in_charge_id', $workerId)
+            ->whereNull('dev_issues.triage_done_at')
+            ->whereNotNull('dev_issues.agent_waiting_at')
+            ->whereExists(function ($q) use ($workerId) {
+                $q->select(DB::raw(1))
+                    ->from('terminal_messages as tm')
+                    ->join('terminal_channels as tc', 'tm.channel_id', '=', 'tc.id')
+                    ->whereColumn('tc.context_id', 'dev_issues.id')
+                    ->where('tc.context_type', DevIssue::class)
+                    ->where('tm.user_id', '!=', $workerId)
+                    ->whereColumn('tm.created_at', '>', 'dev_issues.agent_waiting_at');
+            })
+            ->orderBy('dev_boards.order')
+            ->orderBy('dev_issues.agent_waiting_at')
+            ->select('dev_issues.*', 'dev_boards.type as board_type')
+            ->first();
+    }
+
+    /**
+     * Triage-Entscheidung committen. ready=true → Issue für die Ausführung freigeben
+     * (triage_done_at setzen, optional Story-Points korrigieren, Lock lösen). ready=false →
+     * Rückfrage in den Context-Thread + Warten-Zustand (wie ask); triage_done_at bleibt leer,
+     * bis der Reife-Check nach der Antwort erneut läuft und freigibt.
+     *
+     * POST /api/dev/agent/issues/{id}/triage  { ready, story_points?, question?, session_id? }
+     */
+    public function triage(Request $request, int $id): JsonResponse
+    {
+        $issue = DevIssue::find($id);
+        if (!$issue) {
+            return response()->json(['message' => 'Issue not found'], 404);
+        }
+        $data = $request->validate([
+            'ready' => 'required|boolean',
+            'story_points' => 'nullable|string|max:8',
+            'question' => 'nullable|string|max:5000',
+            'session_id' => 'nullable|string|max:255',
+        ]);
+
+        // Story-Points übernehmen, wenn eine gültige Größe geliefert wurde (xs..xxl).
+        $spValue = strtolower(trim((string) ($data['story_points'] ?? '')));
+        $allowedSp = collect(IssueStoryPoints::cases())->map(fn ($s) => $s->value)->all();
+        $storyPoints = in_array($spValue, $allowedSp, true) ? $spValue : null;
+
+        if ($data['ready']) {
+            $issue->update([
+                'triage_done_at' => now(),
+                'story_points' => $storyPoints ?? $issue->story_points,
+                'agent_waiting_at' => null,
+                'agent_session_id' => null,
+                'agent_locked_at' => null,
+                'agent_locked_by' => null,
+            ]);
+            $issue->logActivity('Triage: Issue auf Reife geprüft und für die Bearbeitung freigegeben.'
+                . ($storyPoints ? "\nStory Points: {$storyPoints}" : ''), [
+                'source' => 'agent',
+                'status' => 'triaged',
+            ]);
+            Log::info('[Dev Agent] Issue triaged (ready)', ['issue_id' => $issue->id]);
+
+            return response()->json(['message' => 'Issue triaged', 'data' => [
+                'id' => $issue->id,
+                'triage_done_at' => $issue->triage_done_at?->toIso8601String(),
+                'story_points' => $issue->story_points?->value ?? $issue->story_points,
+            ]]);
+        }
+
+        // Nicht reif → Rückfrage stellen (wie ask): Thread + Warten-Zustand, ungeprüft lassen.
+        $question = trim((string) ($data['question'] ?? ''));
+        if ($question === '') {
+            return response()->json(['message' => 'Question required when not ready'], 422);
+        }
+        $this->postToIssueThread($issue, (int) $request->user()?->id, $question);
+        $issue->update([
+            'agent_waiting_at' => now(),
+            'agent_session_id' => $data['session_id'] ?? $issue->agent_session_id,
+            'agent_summary' => 'TRIAGE-RÜCKFRAGE: ' . $question,
+            'agent_locked_at' => null,
+            'agent_locked_by' => null,
+        ]);
+        $issue->logActivity("Triage: Rückfrage zur Reife im Kontext-Thread gestellt.\n\nFrage: {$question}", [
+            'source' => 'agent',
+            'status' => 'deferred',
+        ]);
+        Log::info('[Dev Agent] Issue triage question', ['issue_id' => $issue->id]);
+
+        return response()->json(['message' => 'Triage question posted', 'data' => ['id' => $issue->id]]);
+    }
+
+    /**
      * Einheitliches Issue-Payload für Claim + Resume. Bei $resume=true weiß der Worker,
      * dass er die gemerkte Claude-Session fortsetzt (die Antwort steckt im `thread`).
      *
@@ -151,7 +348,7 @@ class AgentController extends Controller
      * Antwort im Kontext-Thread von jemand anderem bekommen hat — in Board-Reihenfolge.
      * Nur bug/feature-Boards des Packages, agent-freigegeben.
      */
-    protected function resumableIssue(DevPackage $package, int $workerId): ?DevIssue
+    protected function resumableIssue(DevPackage $package, int $workerId, bool $requireTriage = false): ?DevIssue
     {
         return DevIssue::query()
             ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
@@ -162,6 +359,9 @@ class AgentController extends Controller
             ->where('dev_issues.is_done', false)
             ->where('dev_issues.user_in_charge_id', $workerId)
             ->whereNotNull('dev_issues.agent_waiting_at')
+            // Bei require_triage sind offene Triage-Rückfragen (noch nicht triagiert) Sache
+            // des Triage-Claims — die Ausführung setzt erst nach der Freigabe fort.
+            ->when($requireTriage, fn ($q) => $q->whereNotNull('dev_issues.triage_done_at'))
             ->whereExists(function ($q) use ($workerId) {
                 $q->select(DB::raw(1))
                     ->from('terminal_messages as tm')

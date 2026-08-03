@@ -44,6 +44,7 @@ class DevIssue extends Model
         'agent_summary',
         'agent_waiting_at',
         'agent_session_id',
+        'triage_done_at',
     ];
 
     protected $casts = [
@@ -57,6 +58,7 @@ class DevIssue extends Model
         'agent_locked_at' => 'datetime',
         'agent_completed_at' => 'datetime',
         'agent_waiting_at' => 'datetime',
+        'triage_done_at' => 'datetime',
     ];
 
     protected static function booted(): void
