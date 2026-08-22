@@ -44,6 +44,7 @@ class DevIssue extends Model
         'agent_summary',
         'agent_waiting_at',
         'agent_session_id',
+        'agent_fail_count',
         'triage_done_at',
     ];
 

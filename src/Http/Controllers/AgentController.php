@@ -588,6 +588,7 @@ class AgentController extends Controller
             'agent_locked_by' => null,
             'agent_waiting_at' => null,
             'agent_session_id' => null,
+            'agent_fail_count' => 0,
         ]);
 
         // Log activity on the issue (visible in UI activity feed)
@@ -708,26 +709,42 @@ class AgentController extends Controller
 
         $error = $data['error'] ?? 'Unknown error';
 
+        // Fehlversuch-Backoff gegen die Endlosschleife: früher setzte fail() agent_locked_at
+        // auf null → der nächste Claim griff dasselbe Issue sofort wieder (Tight-Loop, der
+        // Budget verbrennt). Jetzt:
+        //  - bis MAX_FAILS-1: gesperrt lassen (agent_locked_at = now) → der 30-Min-Claim-Filter
+        //    hält es zurück, der Worker macht solange ANDERE Issues.
+        //  - ab MAX_FAILS: parken (agent_waiting_at) → raus aus dem Auto-Loop, der Mensch muss ran.
+        $maxFails = 3;
+        $failCount = (int) ($issue->agent_fail_count ?? 0) + 1;
+        $park = $failCount >= $maxFails;
+
         $issue->update([
             'agent_summary' => 'FAILED: ' . $error,
-            'agent_locked_at' => null,
+            'agent_fail_count' => $failCount,
+            'agent_locked_at' => $park ? null : now(),
             'agent_locked_by' => null,
+            'agent_waiting_at' => $park ? now() : $issue->agent_waiting_at,
         ]);
 
-        // Log failure as activity on the issue
-        $issue->logActivity("Agent konnte dieses Issue nicht bearbeiten.\n\nFehler: {$error}", [
+        $note = $park
+            ? "Agent gab nach {$failCount} Fehlversuchen auf — geparkt, bitte manuell prüfen.\n\nLetzter Fehler: {$error}"
+            : "Agent-Fehlversuch {$failCount}/{$maxFails} — erneuter Versuch nach Backoff.\n\nFehler: {$error}";
+        $issue->logActivity($note, [
             'source' => 'agent',
-            'status' => 'failed',
+            'status' => $park ? 'parked' : 'failed',
         ]);
 
         Log::warning('[Dev Agent] Issue failed', [
             'issue_id' => $issue->id,
+            'fail_count' => $failCount,
+            'parked' => $park,
             'error' => $error,
         ]);
 
         return response()->json([
-            'message' => 'Issue marked as failed',
-            'data' => ['id' => $issue->id],
+            'message' => $park ? 'Issue parked after repeated failures' : 'Issue marked as failed (backoff)',
+            'data' => ['id' => $issue->id, 'fail_count' => $failCount, 'parked' => $park],
         ]);
     }
 
