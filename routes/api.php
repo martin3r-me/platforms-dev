@@ -20,6 +20,8 @@ Route::prefix('dev/agent')->middleware('auth:api')->group(function () {
         ->name('dev.api.agent.pipeline');
     Route::post('/packages/{slug}/next-issue', [AgentController::class, 'nextIssue'])
         ->name('dev.api.agent.next-issue');
+    Route::post('/packages/{slug}/next-cohort', [AgentController::class, 'nextCohort'])
+        ->name('dev.api.agent.next-cohort');
     Route::post('/packages/{slug}/next-untriaged', [AgentController::class, 'nextUntriaged'])
         ->name('dev.api.agent.next-untriaged');
     Route::post('/issues/{id}/triage', [AgentController::class, 'triage'])

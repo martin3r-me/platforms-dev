@@ -125,6 +125,108 @@ class AgentController extends Controller
     }
 
     /**
+     * Kohorten-Claim: das nächste zu bearbeitende BOARD als Ganzes. Statt Ticket-für-Ticket
+     * greift der Worker die gesamte ready-Menge EINES Boards (das Board des obersten Tickets),
+     * damit er das zusammenhängende Paket (z. B. eine Refactor-Kette) versteht, die Reihenfolge
+     * selbst bestimmt und es sequenziell abarbeitet. Alle Tickets werden gesperrt; nicht
+     * begonnene gibt der Worker per /release wieder frei (Stop-on-Fail).
+     *
+     * POST /api/dev/agent/packages/{slug}/next-cohort
+     */
+    public function nextCohort(Request $request, string $slug): JsonResponse
+    {
+        $package = $this->resolvePackage($slug);
+        if (!$package) {
+            return response()->json(['message' => 'Package not found'], 404);
+        }
+        if (!$package->agent_enabled) {
+            return response()->json(['message' => 'Package not released for agent'], 403);
+        }
+
+        $workerId = (int) $request->user()?->id;
+        $allowUnassigned = $request->boolean('allow_unassigned');
+        $requireTriage = (bool) $package->require_triage;
+        $limit = max(1, min(20, (int) ($request->input('cohort_limit') ?? 8)));
+
+        // Resume-First wie bei nextIssue: eine beantwortete Rückfrage zuerst — als Ein-Ticket-
+        // Kohorte (die gemerkte Session wird fortgesetzt).
+        if ($workerId > 0 && ($resume = $this->resumableIssue($package, $workerId, $requireTriage))) {
+            $resume->update([
+                'agent_waiting_at' => null,
+                'agent_locked_at' => now(),
+                'agent_locked_by' => 'worker:' . $slug,
+            ]);
+
+            return response()->json(['data' => [
+                'board' => ['id' => $resume->dev_board_id, 'name' => null, 'type' => null],
+                'issues' => [$this->issuePayload($resume, $package, $workerId, true)],
+            ]]);
+        }
+
+        // Basis-Query: claimbare Issues des Packages (identische Filter wie nextIssue).
+        $base = DevIssue::query()
+            ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
+            ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
+            ->whereNull('dev_boards.deleted_at')
+            ->where('dev_boards.dev_package_id', $package->id)
+            ->whereIn('dev_boards.type', ['bug', 'feature'])
+            ->where('dev_issues.status', 'open')
+            ->where('dev_issues.is_done', false)
+            ->whereNull('dev_issues.agent_waiting_at')
+            ->where(function ($q) {
+                $q->whereNull('dev_issues.agent_locked_at')
+                  ->orWhere('dev_issues.agent_locked_at', '<', now()->subMinutes(30));
+            })
+            ->where(function ($q) use ($workerId, $allowUnassigned) {
+                $q->where('dev_issues.user_in_charge_id', $workerId);
+                if ($allowUnassigned) {
+                    $q->orWhereNull('dev_issues.user_in_charge_id');
+                }
+            });
+        if ($requireTriage) {
+            $base->whereNotNull('dev_issues.triage_done_at');
+        }
+
+        $order = fn ($q) => $q
+            ->orderBy('dev_boards.order')
+            ->orderByRaw('dev_board_slots.order IS NULL')
+            ->orderBy('dev_board_slots.order')
+            ->orderBy('dev_issues.slot_order')
+            ->orderBy('dev_issues.created_at');
+
+        // Führungs-Ticket bestimmen → dessen Board ist die Kohorte.
+        $lead = $order(clone $base)
+            ->select('dev_issues.*', 'dev_boards.type as board_type', 'dev_boards.name as board_name')
+            ->first();
+        if (!$lead) {
+            return response()->json(null, 204);
+        }
+
+        // Die ready-Menge DIESES Boards, in Reihenfolge, gedeckelt.
+        $issues = $order((clone $base)->where('dev_boards.id', $lead->dev_board_id))
+            ->limit($limit)
+            ->select('dev_issues.*', 'dev_boards.type as board_type', 'dev_boards.name as board_name')
+            ->get();
+
+        $now = now();
+        $payloads = [];
+        foreach ($issues as $iss) {
+            $iss->update(['agent_locked_at' => $now, 'agent_locked_by' => 'worker:' . $slug]);
+            $payloads[] = $this->issuePayload($iss, $package, $workerId);
+        }
+
+        return response()->json(['data' => [
+            'board' => [
+                'id' => (int) $lead->dev_board_id,
+                'name' => $lead->board_name,
+                'type' => $lead->board_type,
+            ],
+            'issues' => $payloads,
+        ]]);
+    }
+
+
+    /**
      * Triage-Claim: nächstes NOCH UNGEPRÜFTES Issue (triage_done_at NULL) eines Packages —
      * für die Reife-Prüfung (Story-Points + Inhalt) vor der Ausführung. Reihenfolge und
      * Zuweisungs-/Lock-Logik wie nextIssue, nur gefiltert auf ungeprüft. Resume-First holt
