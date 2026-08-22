@@ -334,7 +334,13 @@ class AgentController extends Controller
 
             $points = 0;
             foreach ($sps as $v) {
-                if ($v && ($sp = IssueStoryPoints::tryFrom((string) $v))) {
+                if (! $v) {
+                    continue;
+                }
+                // story_points ist auf IssueStoryPoints gecastet → pluck() liefert bereits
+                // Enum-Instanzen; nur ein evtl. roher String muss noch geparst werden.
+                $sp = $v instanceof IssueStoryPoints ? $v : IssueStoryPoints::tryFrom((string) $v);
+                if ($sp) {
                     $points += $sp->points();
                 }
             }
