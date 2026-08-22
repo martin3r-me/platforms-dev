@@ -34,6 +34,8 @@ Route::prefix('dev/agent')->middleware('auth:api')->group(function () {
         ->name('dev.api.agent.defer');
     Route::post('/issues/{id}/ask', [AgentController::class, 'ask'])
         ->name('dev.api.agent.ask');
+    Route::get('/stats', [AgentController::class, 'stats'])
+        ->name('dev.api.agent.stats');
     Route::post('/issues/{id}/unlock', [AgentController::class, 'unlock'])
         ->name('dev.api.agent.unlock');
 });

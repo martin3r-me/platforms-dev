@@ -314,6 +314,45 @@ class AgentController extends Controller
      *
      * @return array<string, mixed>
      */
+    /**
+     * GET /api/dev/agent/stats — Agenten-Kennzahlen fürs Dashboard: erledigte Aufgaben + Σ Story
+     * Points in den letzten 24 h und im laufenden Monat (agent_completed_at im Fenster; SP aus dem
+     * xs..xxl-Punktwert). Attribution = agent-erledigt in agent-freigegebenen Packages.
+     */
+    public function stats(Request $request): JsonResponse
+    {
+        $ids = DevPackage::agentEnabled()->pluck('id');
+
+        $calc = function ($since) use ($ids): array {
+            $sps = DevIssue::query()
+                ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
+                ->whereNull('dev_boards.deleted_at')
+                ->whereIn('dev_boards.dev_package_id', $ids)
+                ->whereNotNull('dev_issues.agent_completed_at')
+                ->where('dev_issues.agent_completed_at', '>=', $since)
+                ->pluck('dev_issues.story_points');
+
+            $points = 0;
+            foreach ($sps as $v) {
+                if ($v && ($sp = IssueStoryPoints::tryFrom((string) $v))) {
+                    $points += $sp->points();
+                }
+            }
+
+            return ['tasks' => $sps->count(), 'sp' => $points];
+        };
+
+        $day = $calc(now()->subDay());
+        $month = $calc(now()->startOfMonth());
+
+        return response()->json(['data' => [
+            'tasks_24h' => $day['tasks'],
+            'sp_24h' => $day['sp'],
+            'tasks_month' => $month['tasks'],
+            'sp_month' => $month['sp'],
+        ]]);
+    }
+
     protected function issuePayload(DevIssue $issue, DevPackage $package, int $workerId, bool $resume = false): array
     {
         return [
@@ -329,6 +368,8 @@ class AgentController extends Controller
             'package_name' => $package->name,
             'github_repo' => $package->github_repo_full_name,
             'labels' => $issue->labels,
+            // Empfänger für Rückfragen/Meldungen (Package-Verantwortlicher) — fürs Comms-Panel.
+            'responsible_name' => optional(\Platform\Core\Models\User::find($this->packageResponsibleId($issue)))->name,
             // Kontext-Thread (Rückfragen/Antworten), falls der Worker Mitglied ist.
             'thread' => $this->contextThread($issue, $workerId),
             // Resume-Signal: gemerkte Session + Branch → Worker setzt fort statt neu.
