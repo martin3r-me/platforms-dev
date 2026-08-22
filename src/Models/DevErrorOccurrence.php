@@ -13,6 +13,14 @@ class DevErrorOccurrence extends Model
     public const STATUS_RESOLVED = 'resolved';
     public const STATUS_IGNORED = 'ignored';
 
+    /**
+     * Aktualitäts-Fenster (Stunden): ein Fehler gilt nur als „aktiv/feuert noch", wenn er
+     * INNERHALB dieses Fensters zuletzt auftrat. Ältere sind fired-and-fixed-Rauschen aus dem
+     * Entwickeln — sie verschwinden aus der Default-Ansicht und tauchen bei Wiederkehr von
+     * selbst wieder auf (der Ingest legt außerhalb des Dedup-Fensters eine neue open-Zeile an).
+     */
+    public const ACTIVE_WINDOW_HOURS = 48;
+
     protected $table = 'dev_error_occurrences';
 
     protected $fillable = [
@@ -62,6 +70,17 @@ class DevErrorOccurrence extends Model
     public function resolvedByUser(): BelongsTo
     {
         return $this->belongsTo(\Platform\Core\Models\User::class, 'resolved_by_user_id');
+    }
+
+    /**
+     * „Aktiv" = feuert noch: offen/quittiert UND zuletzt innerhalb des Aktualitäts-Fensters
+     * gesehen. Das ist die Default-Sicht — Behobenes/Altlast fällt raus, ohne Status-Mutation.
+     */
+    public function scopeActive($query, ?int $hours = null)
+    {
+        return $query
+            ->whereIn('status', [self::STATUS_OPEN, self::STATUS_ACKNOWLEDGED])
+            ->where('last_seen_at', '>=', now()->subHours($hours ?? self::ACTIVE_WINDOW_HOURS));
     }
 
     public static function generateHash(Throwable $e, ?int $httpCode = null): string

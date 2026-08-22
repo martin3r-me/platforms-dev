@@ -189,9 +189,10 @@ class DevEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions,
             ];
         }
 
-        // Open errors per package
+        // Aktive Fehler pro Package (feuert noch — Aktualitäts-Fenster, konsistent zur UI;
+        // behobene Dev-Transienten zählen nicht als offene Last).
         $errorCounts = DevErrorOccurrence::whereIn('dev_package_id', $allPackageIds)
-            ->whereIn('status', [DevErrorOccurrence::STATUS_OPEN, DevErrorOccurrence::STATUS_ACKNOWLEDGED])
+            ->active()
             ->select('dev_package_id')
             ->selectRaw('COUNT(*) as error_count')
             ->selectRaw('SUM(occurrence_count) as total_occurrences')

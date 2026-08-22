@@ -341,9 +341,10 @@ class Show extends Component
                 ->get()
             : collect();
 
-        // Error occurrences
+        // Error occurrences — nur AKTIVE (feuert noch): behobene/alte Dev-Transienten fallen
+        // aus der Default-Sicht (Aktualitäts-Fenster), tauchen bei Wiederkehr von selbst wieder auf.
         $errorOccurrences = DevErrorOccurrence::where('dev_package_id', $this->package->id)
-            ->whereIn('status', [DevErrorOccurrence::STATUS_OPEN, DevErrorOccurrence::STATUS_ACKNOWLEDGED])
+            ->active()
             ->orderByDesc('last_seen_at')
             ->limit(20)
             ->get();
