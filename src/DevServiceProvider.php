@@ -88,6 +88,7 @@ class DevServiceProvider extends ServiceProvider
 
         $this->registerLivewireComponents();
         $this->registerTools();
+        $this->registerObservers();
 
         // Error Reporter Registration
         try {
@@ -128,6 +129,11 @@ class DevServiceProvider extends ServiceProvider
 
             Livewire::component($alias, $class);
         }
+    }
+
+    protected function registerObservers(): void
+    {
+        \Platform\Dev\Models\DevIssue::observe(\Platform\Dev\Observers\DevIssueObserver::class);
     }
 
     protected function registerTools(): void

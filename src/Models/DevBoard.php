@@ -10,6 +10,10 @@ use Platform\Dev\Enums\BoardType;
 use Platform\Organization\Traits\HasTimeEntries;
 use Symfony\Component\Uid\UuidV7;
 
+/**
+ * @property string $status
+ * @property BoardType $type
+ */
 class DevBoard extends Model
 {
     use SoftDeletes, HasTimeEntries;
@@ -76,6 +80,9 @@ class DevBoard extends Model
         return $this->hasMany(DevBoardSlot::class, 'dev_board_id')->orderBy('order');
     }
 
+    /**
+     * @return HasMany<DevIssue, $this>
+     */
     public function issues(): HasMany
     {
         return $this->hasMany(DevIssue::class, 'dev_board_id');
