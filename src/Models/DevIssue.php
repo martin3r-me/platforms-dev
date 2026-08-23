@@ -12,6 +12,10 @@ use Platform\Dev\Enums\IssueStoryPoints;
 use Platform\Organization\Traits\HasTimeEntries;
 use Symfony\Component\Uid\UuidV7;
 
+/**
+ * @property string $status
+ * @property bool $is_done
+ */
 class DevIssue extends Model
 {
     use SoftDeletes, LogsActivity, HasTimeEntries, HasTags;
@@ -74,6 +78,9 @@ class DevIssue extends Model
         });
     }
 
+    /**
+     * @return BelongsTo<DevBoard, $this>
+     */
     public function board(): BelongsTo
     {
         return $this->belongsTo(DevBoard::class, 'dev_board_id');
