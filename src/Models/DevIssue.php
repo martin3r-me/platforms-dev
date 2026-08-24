@@ -153,6 +153,34 @@ class DevIssue extends Model
             ->where('agent_locked_at', '>=', now()->subMinutes(30));
     }
 
+    /**
+     * Claim-Gate: die für EINEN Worker greifbare Menge — nicht auf Antwort wartend
+     * (agent_waiting_at leer), nicht (frisch) gesperrt, und ihm zugewiesen (bzw. bei
+     * $allowUnassigned zusätzlich der herrenlose Pool). Referenziert bewusst NUR
+     * dev_issues-Spalten (qualifiziert), damit die Scope in den gejointen Agent-Queries
+     * eindeutig ist. Board-Typ/Status/Package-Filter und die Triage-Richtung (execute vs.
+     * untriaged) bleiben beim Aufrufer.
+     *
+     * Dies ist die EINE Quelle für „wer darf claimen", die zuvor an vier Stellen inline
+     * dupliziert war und auseinanderlief (u. a. fehlte der Vorschau-`next_up` das
+     * agent_waiting_at-Gate → sie zeigte wartende Rückfragen als „kommt als Nächstes").
+     */
+    public function scopeClaimableBy($query, int $workerId, bool $allowUnassigned)
+    {
+        return $query
+            ->whereNull('dev_issues.agent_waiting_at')
+            ->where(function ($q) {
+                $q->whereNull('dev_issues.agent_locked_at')
+                  ->orWhere('dev_issues.agent_locked_at', '<', now()->subMinutes(30));
+            })
+            ->where(function ($q) use ($workerId, $allowUnassigned) {
+                $q->where('dev_issues.user_in_charge_id', $workerId);
+                if ($allowUnassigned) {
+                    $q->orWhereNull('dev_issues.user_in_charge_id');
+                }
+            });
+    }
+
     public function isAgentLocked(): bool
     {
         return $this->agent_locked_at !== null

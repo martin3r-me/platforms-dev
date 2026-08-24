@@ -68,17 +68,7 @@ class AgentController extends Controller
             ->where('dev_issues.is_done', false)
             // Auf Antwort wartende Rückfragen überspringen (der Resume-Pass oben holt sie,
             // sobald geantwortet wurde) — nicht als „normale“ Arbeit erneut ziehen.
-            ->whereNull('dev_issues.agent_waiting_at')
-            ->where(function ($q) {
-                $q->whereNull('dev_issues.agent_locked_at')
-                  ->orWhere('dev_issues.agent_locked_at', '<', now()->subMinutes(30));
-            })
-            ->where(function ($q) use ($workerId, $allowUnassigned) {
-                $q->where('dev_issues.user_in_charge_id', $workerId);
-                if ($allowUnassigned) {
-                    $q->orWhereNull('dev_issues.user_in_charge_id');
-                }
-            });
+            ->claimableBy($workerId, $allowUnassigned);
         if ($requireTriage) {
             $query->whereNotNull('dev_issues.triage_done_at');
         }
@@ -172,17 +162,7 @@ class AgentController extends Controller
             ->whereIn('dev_boards.type', ['bug', 'feature'])
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false)
-            ->whereNull('dev_issues.agent_waiting_at')
-            ->where(function ($q) {
-                $q->whereNull('dev_issues.agent_locked_at')
-                  ->orWhere('dev_issues.agent_locked_at', '<', now()->subMinutes(30));
-            })
-            ->where(function ($q) use ($workerId, $allowUnassigned) {
-                $q->where('dev_issues.user_in_charge_id', $workerId);
-                if ($allowUnassigned) {
-                    $q->orWhereNull('dev_issues.user_in_charge_id');
-                }
-            });
+            ->claimableBy($workerId, $allowUnassigned);
         if ($requireTriage) {
             $base->whereNotNull('dev_issues.triage_done_at');
         }
@@ -272,17 +252,7 @@ class AgentController extends Controller
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false)
             ->whereNull('dev_issues.triage_done_at')       // noch ungeprüft
-            ->whereNull('dev_issues.agent_waiting_at')      // offene Rückfrage holt der Resume-Pass
-            ->where(function ($q) {
-                $q->whereNull('dev_issues.agent_locked_at')
-                  ->orWhere('dev_issues.agent_locked_at', '<', now()->subMinutes(30));
-            })
-            ->where(function ($q) use ($workerId, $allowUnassigned) {
-                $q->where('dev_issues.user_in_charge_id', $workerId);
-                if ($allowUnassigned) {
-                    $q->orWhereNull('dev_issues.user_in_charge_id');
-                }
-            });
+            ->claimableBy($workerId, $allowUnassigned);
 
         // KEIN Story-Points-Filter: die Triage SCHÄTZT die Größe — sie darf große Items nicht
         // überspringen. Das max_story_points-Limit ist ein Execute-Konzept, kein Triage-Konzept.
@@ -931,7 +901,7 @@ class AgentController extends Controller
      */
     public function pipeline(Request $request): JsonResponse
     {
-        $packages = DevPackage::agentEnabled()->get(['id', 'name', 'github_repo_full_name']);
+        $packages = DevPackage::agentEnabled()->get(['id', 'name', 'github_repo_full_name', 'require_triage']);
         // Package-Scope deckungsgleich mit dem Claim: schränkt der Worker per
         // allowedPackages/Pin ein, sendet er die Namen mit → Vorschau zeigt nur diese.
         // Ohne Scope (leer) = alle agent-freigegebenen (wie targetPackages ohne Pin).
@@ -947,18 +917,16 @@ class AgentController extends Controller
         }
 
         $workerId = (int) $request->user()?->id;
-        $stale = now()->subMinutes(30);
 
-        // Deckungsgleich mit dem echten Claim (nextIssue): nur der Verantwortliche,
-        // und NUR bei gesetztem Worker-Setting zusätzlich der unzugewiesene Pool. Ohne
-        // das würde die Vorschau Tickets zeigen, die der Worker nie zieht.
+        // Deckungsgleich mit dem echten Claim (nextIssue): die EINE claimableBy-Scope (nicht
+        // wartend, nicht gesperrt, zugewiesen bzw. Pool). Zusätzlich das Triage-Gate der Quelle:
+        // Triage-Packages liefern für die AUSFÜHRUNG nur Getriagetes (wie nextIssue), Nicht-
+        // Triage-Packages alles. So deckt sich die Vorschau (ready/next_up) mit dem echten Claim.
         $allowUnassigned = $request->boolean('allow_unassigned');
-        $claimable = function ($q) use ($workerId, $allowUnassigned) {
-            $q->where('dev_issues.user_in_charge_id', $workerId);
-            if ($allowUnassigned) {
-                $q->orWhereNull('dev_issues.user_in_charge_id');
-            }
-        };
+        $triageIds = $packages->where('require_triage', true)->pluck('id')->all();
+        $triaged = fn ($q) => $q->when($triageIds, fn ($w) => $w->where(fn ($t) =>
+            $t->whereNotIn('dev_boards.dev_package_id', $triageIds)
+              ->orWhereNotNull('dev_issues.triage_done_at')));
 
         // Wie im Claim: keine Slot-Rollen mehr, es zählt der Verantwortliche.
         $base = fn () => DevIssue::query()
@@ -997,10 +965,7 @@ class AgentController extends Controller
 
         // Ready = für DIESEN Worker claimbar (nach seinem claim_unassigned-Setting), nicht
         // gesperrt, nicht auf Antwort wartend.
-        foreach ($base()
-            ->where($claimable)
-            ->whereNull('dev_issues.agent_waiting_at')
-            ->where(fn ($q) => $q->whereNull('dev_issues.agent_locked_at')->orWhere('dev_issues.agent_locked_at', '<', $stale))
+        foreach ($triaged($base()->claimableBy($workerId, $allowUnassigned))
             ->selectRaw('dev_boards.dev_package_id as pid, count(*) as c')
             ->groupBy('dev_boards.dev_package_id')->get() as $r) {
             $perPackage[$r->pid]['ready'] += (int) $r->c;
@@ -1019,10 +984,11 @@ class AgentController extends Controller
         // "Was kommt als Nächstes": für diesen Worker claimbare Issues (zugewiesen ODER
         // unzugewiesen), nicht gesperrt — in Board-Reihenfolge (wie der echte Claim).
         $nameById = $packages->keyBy('id');
-        $nextUp = $base()
-            ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
-            ->where($claimable)
-            ->where(fn ($q) => $q->whereNull('dev_issues.agent_locked_at')->orWhere('dev_issues.agent_locked_at', '<', $stale))
+        $nextUp = $triaged(
+            $base()
+                ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
+                ->claimableBy($workerId, $allowUnassigned)
+        )
             ->orderBy('dev_boards.order')
             ->orderByRaw('dev_board_slots.order IS NULL')
             ->orderBy('dev_board_slots.order')
