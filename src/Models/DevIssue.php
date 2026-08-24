@@ -168,6 +168,9 @@ class DevIssue extends Model
     public function scopeClaimableBy($query, int $workerId, bool $allowUnassigned)
     {
         return $query
+            // Kein Backlog: der Agent zieht nur vom Menschen priorisierte (in einen Slot gelegte)
+            // Issues. Slot-lose bleiben liegen — und tauchen dadurch auch in der Vorschau nicht auf.
+            ->whereNotNull('dev_issues.dev_board_slot_id')
             ->whereNull('dev_issues.agent_waiting_at')
             ->where(function ($q) {
                 $q->whereNull('dev_issues.agent_locked_at')

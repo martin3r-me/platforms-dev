@@ -63,7 +63,6 @@ class AgentController extends Controller
             ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
             ->whereNull('dev_boards.deleted_at')
             ->where('dev_boards.dev_package_id', $package->id)
-            ->whereIn('dev_boards.type', ['bug', 'feature'])
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false)
             // Auf Antwort wartende Rückfragen überspringen (der Resume-Pass oben holt sie,
@@ -159,7 +158,6 @@ class AgentController extends Controller
             ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
             ->whereNull('dev_boards.deleted_at')
             ->where('dev_boards.dev_package_id', $package->id)
-            ->whereIn('dev_boards.type', ['bug', 'feature'])
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false)
             ->claimableBy($workerId, $allowUnassigned);
@@ -248,7 +246,6 @@ class AgentController extends Controller
             ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
             ->whereNull('dev_boards.deleted_at')
             ->where('dev_boards.dev_package_id', $package->id)
-            ->whereIn('dev_boards.type', ['bug', 'feature'])
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false)
             ->whereNull('dev_issues.triage_done_at')       // noch ungeprüft
@@ -288,7 +285,6 @@ class AgentController extends Controller
             ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
             ->whereNull('dev_boards.deleted_at')
             ->where('dev_boards.dev_package_id', $package->id)
-            ->whereIn('dev_boards.type', ['bug', 'feature'])
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false)
             ->where('dev_issues.user_in_charge_id', $workerId)
@@ -468,7 +464,6 @@ class AgentController extends Controller
             ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
             ->whereNull('dev_boards.deleted_at')
             ->where('dev_boards.dev_package_id', $package->id)
-            ->whereIn('dev_boards.type', ['bug', 'feature'])
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false)
             ->where('dev_issues.user_in_charge_id', $workerId)
@@ -933,7 +928,6 @@ class AgentController extends Controller
             ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
             ->whereNull('dev_boards.deleted_at')
             ->whereIn('dev_boards.dev_package_id', $ids)
-            ->whereIn('dev_boards.type', ['bug', 'feature'])
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false);
 
