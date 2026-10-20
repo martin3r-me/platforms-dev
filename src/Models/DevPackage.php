@@ -11,12 +11,11 @@ use Platform\Core\Models\Concerns\HasEntityLinks;
 use Platform\Core\Traits\HasTags;
 use Platform\Organization\Contracts\HasChildContextRelations;
 use Platform\Organization\Traits\HasTimeEntries;
-use Platform\Organization\Traits\HasOrganizationContexts;
 use Symfony\Component\Uid\UuidV7;
 
 class DevPackage extends Model implements HasChildContextRelations
 {
-    use SoftDeletes, LogsActivity, HasEntityLinks, HasTags, HasTimeEntries, HasOrganizationContexts;
+    use SoftDeletes, LogsActivity, HasEntityLinks, HasTags, HasTimeEntries;
 
     protected $table = 'dev_packages';
 
