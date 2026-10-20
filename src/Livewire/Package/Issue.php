@@ -84,25 +84,6 @@ class Issue extends Component
             'context_id' => $this->package->id,
         ]);
 
-        // Playground - LLM context
-        $this->dispatch('playground', [
-            'type' => 'Issue',
-            'model' => get_class($this->issue),
-            'modelId' => $this->issue->id,
-            'title' => $this->issue->title,
-            'description' => $this->issue->description ?? '',
-            'url' => route('dev.packages.issues.show', [$this->package, $this->issue]),
-            'source' => 'dev.issue.view',
-            'meta' => [
-                'priority' => $this->issue->priority instanceof \BackedEnum ? $this->issue->priority->value : $this->issue->priority,
-                'story_points' => $this->issue->story_points,
-                'due_date' => $this->issue->due_date?->toIso8601String(),
-                'is_done' => $this->issue->is_done,
-                'package' => $this->package->name,
-                'board' => $this->issue->board?->name,
-                'slot' => $this->issue->slot?->name ?? 'Backlog',
-            ],
-        ]);
     }
 
     // --- Inline Save Methods ---
