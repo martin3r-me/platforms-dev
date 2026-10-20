@@ -3,16 +3,18 @@
 namespace Platform\Dev\Organization;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Platform\Dev\Models\DevDocPage;
 use Platform\Dev\Models\DevErrorOccurrence;
 use Platform\Dev\Models\DevIssue;
 use Platform\Dev\Models\DevPackage;
 use Platform\Organization\Contracts\EntityLinkProvider;
+use Platform\Organization\Contracts\HasContextParent;
 use Platform\Organization\Contracts\HasMetricDefinitions;
 use Platform\Organization\Contracts\HasPersonMetrics;
 
-class DevEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions, HasPersonMetrics
+class DevEntityLinkProvider implements EntityLinkProvider, HasContextParent, HasMetricDefinitions, HasPersonMetrics
 {
     public function morphAliases(): array
     {
@@ -353,5 +355,18 @@ class DevEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions,
             'story_points_total' => ['label' => 'Story Points gesamt', 'group' => 'persons', 'direction' => 'neutral', 'unit' => 'points'],
             'story_points_done'  => ['label' => 'Story Points erledigt', 'group' => 'persons', 'direction' => 'up', 'unit' => 'points'],
         ];
+    }
+
+    /**
+     * Issue ohne eigene Verortung erbt vom Package seines Boards.
+     */
+    public function contextParent(string $morphAlias, Model $object): ?array
+    {
+        if ($morphAlias !== 'dev_issue') {
+            return null;
+        }
+        $packageId = $object->board?->dev_package_id;
+
+        return $packageId ? ['dev_package', (int) $packageId] : null;
     }
 }
