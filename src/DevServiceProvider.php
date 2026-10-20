@@ -4,7 +4,6 @@ namespace Platform\Dev;
 
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Platform\Core\PlatformCore;
@@ -46,7 +45,7 @@ class DevServiceProvider extends ServiceProvider
         if (
             config()->has('dev.routing') &&
             config()->has('dev.navigation') &&
-            Schema::hasTable('modules')
+            PlatformCore::modulesTableExists()
         ) {
             PlatformCore::registerModule([
                 'key'        => 'dev',
