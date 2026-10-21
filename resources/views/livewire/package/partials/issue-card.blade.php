@@ -73,7 +73,7 @@
                 @php $userInCharge = $issue->userInCharge ?? null; @endphp
                 @if($userInCharge)
                     @if($userInCharge->avatar)
-                        <img src="{{ $userInCharge->avatar }}" alt="" class="w-4 h-4 rounded-full object-cover">
+                        <img src="{{ method_exists($userInCharge, 'avatarUrl') ? $userInCharge->avatarUrl() : $userInCharge->avatar }}" loading="lazy" alt="" class="w-4 h-4 rounded-full object-cover">
                     @else
                         <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 text-[9px] font-medium text-gray-600">
                             {{ mb_strtoupper(mb_substr($userInCharge->name ?? 'U', 0, 1)) }}
