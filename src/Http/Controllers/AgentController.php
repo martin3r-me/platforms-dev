@@ -5,7 +5,6 @@ namespace Platform\Dev\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Platform\Dev\Enums\IssueStoryPoints;
 use Platform\Dev\Models\DevIssue;
@@ -44,20 +43,6 @@ class AgentController extends Controller
         // Workers. Default false → unverändertes Verhalten für strukturierte Packages.
         $requireTriage = (bool) $package->require_triage;
 
-        // Resume-First: hat ein wartendes Issue dieses Workers eine Antwort im Thread
-        // bekommen? Dann DIESES zuerst — die geparkte Session wird fortgesetzt (Antwort
-        // steckt im mitgelieferten Thread), statt neue Arbeit zu ziehen. Bei require_triage
-        // nur bereits triagierte (eine offene Triage-Rückfrage holt der Triage-Claim).
-        if ($workerId > 0 && ($resume = $this->resumableIssue($package, $workerId, $requireTriage))) {
-            $resume->update([
-                'agent_waiting_at' => null,
-                'agent_locked_at' => now(),
-                'agent_locked_by' => 'worker:' . $slug,
-            ]);
-
-            return response()->json(['data' => $this->issuePayload($resume, $package, (int) $request->user()?->id, true)]);
-        }
-
         $query = DevIssue::query()
             ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
             ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
@@ -65,8 +50,7 @@ class AgentController extends Controller
             ->where('dev_boards.dev_package_id', $package->id)
             ->where('dev_issues.status', 'open')
             ->where('dev_issues.is_done', false)
-            // Auf Antwort wartende Rückfragen überspringen (der Resume-Pass oben holt sie,
-            // sobald geantwortet wurde) — nicht als „normale“ Arbeit erneut ziehen.
+            // Auf Antwort wartende Rückfragen überspringen — nicht als „normale“ Arbeit erneut ziehen.
             ->claimableBy($workerId, $allowUnassigned);
         if ($requireTriage) {
             $query->whereNotNull('dev_issues.triage_done_at');
@@ -136,21 +120,6 @@ class AgentController extends Controller
         $allowUnassigned = $request->boolean('allow_unassigned');
         $requireTriage = (bool) $package->require_triage;
         $limit = max(1, min(20, (int) ($request->input('cohort_limit') ?? 8)));
-
-        // Resume-First wie bei nextIssue: eine beantwortete Rückfrage zuerst — als Ein-Ticket-
-        // Kohorte (die gemerkte Session wird fortgesetzt).
-        if ($workerId > 0 && ($resume = $this->resumableIssue($package, $workerId, $requireTriage))) {
-            $resume->update([
-                'agent_waiting_at' => null,
-                'agent_locked_at' => now(),
-                'agent_locked_by' => 'worker:' . $slug,
-            ]);
-
-            return response()->json(['data' => [
-                'board' => ['id' => $resume->dev_board_id, 'name' => null, 'type' => null],
-                'issues' => [$this->issuePayload($resume, $package, $workerId, true)],
-            ]]);
-        }
 
         // Basis-Query: claimbare Issues des Packages (identische Filter wie nextIssue).
         $base = DevIssue::query()
@@ -230,17 +199,6 @@ class AgentController extends Controller
         $workerId = (int) $request->user()?->id;
         $allowUnassigned = $request->boolean('allow_unassigned');
 
-        // Resume-First: eine beantwortete Triage-Rückfrage (noch ungeprüft) zuerst.
-        if ($workerId > 0 && ($resume = $this->resumableUntriaged($package, $workerId))) {
-            $resume->update([
-                'agent_waiting_at' => null,
-                'agent_locked_at' => now(),
-                'agent_locked_by' => 'triage:' . $slug,
-            ]);
-
-            return response()->json(['data' => $this->issuePayload($resume, $package, $workerId, true)]);
-        }
-
         $query = DevIssue::query()
             ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
             ->leftJoin('dev_board_slots', 'dev_issues.dev_board_slot_id', '=', 'dev_board_slots.id')
@@ -276,40 +234,10 @@ class AgentController extends Controller
     }
 
     /**
-     * Ein noch UNGEPRÜFTES (triage_done_at NULL) wartendes Issue dieses Workers, das seit dem
-     * Warten eine Antwort im Kontext-Thread bekommen hat — für das Fortsetzen des Reife-Checks.
-     */
-    protected function resumableUntriaged(DevPackage $package, int $workerId): ?DevIssue
-    {
-        return DevIssue::query()
-            ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
-            ->whereNull('dev_boards.deleted_at')
-            ->where('dev_boards.dev_package_id', $package->id)
-            ->where('dev_issues.status', 'open')
-            ->where('dev_issues.is_done', false)
-            ->where('dev_issues.user_in_charge_id', $workerId)
-            ->whereNull('dev_issues.triage_done_at')
-            ->whereNotNull('dev_issues.agent_waiting_at')
-            ->whereExists(function ($q) use ($workerId) {
-                $q->select(DB::raw(1))
-                    ->from('terminal_messages as tm')
-                    ->join('terminal_channels as tc', 'tm.channel_id', '=', 'tc.id')
-                    ->whereColumn('tc.context_id', 'dev_issues.id')
-                    ->where('tc.context_type', DevIssue::class)
-                    ->where('tm.user_id', '!=', $workerId)
-                    ->whereColumn('tm.created_at', '>', 'dev_issues.agent_waiting_at');
-            })
-            ->orderBy('dev_boards.order')
-            ->orderBy('dev_issues.agent_waiting_at')
-            ->select('dev_issues.*', 'dev_boards.type as board_type')
-            ->first();
-    }
-
-    /**
      * Triage-Entscheidung committen. ready=true → Issue für die Ausführung freigeben
      * (triage_done_at setzen, optional Story-Points korrigieren, Lock lösen). ready=false →
-     * Rückfrage in den Context-Thread + Warten-Zustand (wie ask); triage_done_at bleibt leer,
-     * bis der Reife-Check nach der Antwort erneut läuft und freigibt.
+     * Rückfrage am Datensatz festhalten + Warten-Zustand; triage_done_at bleibt leer. Ohne
+     * Chat gibt es keinen automatischen Resume mehr — das Warten löst ein Mensch auf.
      *
      * POST /api/dev/agent/issues/{id}/triage  { ready, story_points?, question?, session_id? }
      */
@@ -354,12 +282,12 @@ class AgentController extends Controller
             ]]);
         }
 
-        // Nicht reif → Rückfrage stellen (wie ask): Thread + Warten-Zustand, ungeprüft lassen.
+        // Nicht reif → Rückfrage am Issue festhalten (agent_summary + Activity-Log), ungeprüft
+        // lassen. Kein Chat mehr — die Antwort kommt nicht über einen Thread zurück.
         $question = trim((string) ($data['question'] ?? ''));
         if ($question === '') {
             return response()->json(['message' => 'Question required when not ready'], 422);
         }
-        $this->postToIssueThread($issue, (int) $request->user()?->id, $question);
         $issue->update([
             'agent_waiting_at' => now(),
             'agent_session_id' => $data['session_id'] ?? $issue->agent_session_id,
@@ -367,18 +295,18 @@ class AgentController extends Controller
             'agent_locked_at' => null,
             'agent_locked_by' => null,
         ]);
-        $issue->logActivity("Triage: Rückfrage zur Reife im Kontext-Thread gestellt.\n\nFrage: {$question}", [
+        $issue->logActivity("Triage: Rückfrage zur Reife gestellt.\n\nFrage: {$question}", [
             'source' => 'agent',
             'status' => 'deferred',
         ]);
         Log::info('[Dev Agent] Issue triage question', ['issue_id' => $issue->id]);
 
-        return response()->json(['message' => 'Triage question posted', 'data' => ['id' => $issue->id]]);
+        return response()->json(['message' => 'Triage question recorded', 'data' => ['id' => $issue->id]]);
     }
 
     /**
      * Einheitliches Issue-Payload für Claim + Resume. Bei $resume=true weiß der Worker,
-     * dass er die gemerkte Claude-Session fortsetzt (die Antwort steckt im `thread`).
+     * dass er die gemerkte Claude-Session fortsetzt.
      *
      * @return array<string, mixed>
      */
@@ -444,8 +372,6 @@ class AgentController extends Controller
             'labels' => $issue->labels,
             // Empfänger für Rückfragen/Meldungen (Package-Verantwortlicher) — fürs Comms-Panel.
             'responsible_name' => optional(\Platform\Core\Models\User::find($this->packageResponsibleId($issue)))->name,
-            // Kontext-Thread (Rückfragen/Antworten), falls der Worker Mitglied ist.
-            'thread' => $this->contextThread($issue, $workerId),
             // Resume-Signal: gemerkte Session + Branch → Worker setzt fort statt neu.
             'resume' => $resume,
             'agent_session_id' => $resume ? $issue->agent_session_id : null,
@@ -453,80 +379,6 @@ class AgentController extends Controller
         ];
     }
 
-    /**
-     * Ein wartendes (agent_waiting_at) Issue dieses Workers, das seit dem Warten eine
-     * Antwort im Kontext-Thread von jemand anderem bekommen hat — in Board-Reihenfolge.
-     * Nur bug/feature-Boards des Packages, agent-freigegeben.
-     */
-    protected function resumableIssue(DevPackage $package, int $workerId, bool $requireTriage = false): ?DevIssue
-    {
-        return DevIssue::query()
-            ->join('dev_boards', 'dev_issues.dev_board_id', '=', 'dev_boards.id')
-            ->whereNull('dev_boards.deleted_at')
-            ->where('dev_boards.dev_package_id', $package->id)
-            ->where('dev_issues.status', 'open')
-            ->where('dev_issues.is_done', false)
-            ->where('dev_issues.user_in_charge_id', $workerId)
-            ->whereNotNull('dev_issues.agent_waiting_at')
-            // Bei require_triage sind offene Triage-Rückfragen (noch nicht triagiert) Sache
-            // des Triage-Claims — die Ausführung setzt erst nach der Freigabe fort.
-            ->when($requireTriage, fn ($q) => $q->whereNotNull('dev_issues.triage_done_at'))
-            ->whereExists(function ($q) use ($workerId) {
-                $q->select(DB::raw(1))
-                    ->from('terminal_messages as tm')
-                    ->join('terminal_channels as tc', 'tm.channel_id', '=', 'tc.id')
-                    ->whereColumn('tc.context_id', 'dev_issues.id')
-                    ->where('tc.context_type', DevIssue::class)
-                    ->where('tm.user_id', '!=', $workerId)
-                    ->whereColumn('tm.created_at', '>', 'dev_issues.agent_waiting_at');
-            })
-            ->orderBy('dev_boards.order')
-            ->orderBy('dev_issues.agent_waiting_at')
-            ->select('dev_issues.*', 'dev_boards.type as board_type')
-            ->first();
-    }
-
-    /**
-     * Nachrichten des Context-Threads dieses Issues — nur wenn der Worker Mitglied ist.
-     * Liefert den bisherigen Rückfrage-/Antwort-Verlauf als Kontext fürs nächste Claimen.
-     *
-     * @return array<int, array{user_id:int, author:string, body:?string, at:?string}>|null
-     */
-    protected function contextThread(DevIssue $issue, int $workerId): ?array
-    {
-        if ($workerId < 1) {
-            return null;
-        }
-        $channel = \Platform\Core\Models\TerminalChannel::forTeam((int) $issue->team_id)
-            ->forContext(DevIssue::class, $issue->id)
-            ->first();
-        if (! $channel) {
-            return null;
-        }
-        $isMember = \Platform\Core\Models\TerminalChannelMember::where('channel_id', $channel->id)
-            ->where('user_id', $workerId)->exists();
-        if (! $isMember) {
-            return null;
-        }
-
-        return $channel->messages()
-            ->with('user:id,name')
-            ->orderBy('id')
-            ->limit(80)
-            ->get()
-            ->map(fn ($m) => [
-                'user_id' => (int) $m->user_id,
-                'author' => $m->user?->name ?? ('User #'.$m->user_id),
-                'body' => $m->body_plain,
-                'at' => optional($m->created_at)->toIso8601String(),
-            ])->values()->all();
-    }
-
-    /**
-     * Postet eine Nachricht in den Context-Thread des Issues (Thread anlegen, falls
-     * keiner da) — Absender = Worker, erwähnt IMMER den Verantwortlichen des Dev-
-     * Packages (DevPackage.user_in_charge_id; Fallback Package-/Issue-Ersteller).
-     */
     /** Empfänger einer Dev-Rückfrage: Verantwortlicher des Packages (Fallback Package-/Issue-Ersteller). */
     protected function packageResponsibleId(DevIssue $issue): ?int
     {
@@ -534,94 +386,6 @@ class AgentController extends Controller
         $id = (int) ($package?->user_in_charge_id ?: $package?->created_by_user_id ?: $issue->created_by_user_id);
 
         return $id > 0 ? $id : null;
-    }
-
-    /**
-     * Erfolgsmeldung zustellen: existiert schon ein Kontext-Thread (es lief eine
-     * Rückfrage) → dort rein (Kreis schließen). Sonst DM an den Package-
-     * Verantwortlichen — für ein einmaliges „fertig" lohnt kein neuer Thread.
-     */
-    protected function announceCompletion(DevIssue $issue, int $senderId, string $body): void
-    {
-        $hasThread = \Platform\Core\Models\TerminalChannel::forTeam((int) $issue->team_id)
-            ->forContext(DevIssue::class, $issue->id)
-            ->exists();
-
-        if ($hasThread) {
-            $this->postToIssueThread($issue, $senderId, $body);
-
-            return;
-        }
-
-        if ($recipient = $this->packageResponsibleId($issue)) {
-            app(\Platform\Core\Services\PostDirectMessage::class)
-                ->post((int) $issue->team_id, $senderId, $recipient, $body);
-        }
-    }
-
-    protected function postToIssueThread(DevIssue $issue, int $senderId, string $body): void
-    {
-        $recipients = array_values(array_filter([$this->packageResponsibleId($issue)]));
-
-        app(\Platform\Core\Services\PostContextMessage::class)->post(
-            teamId: (int) $issue->team_id,
-            contextType: DevIssue::class,
-            contextId: $issue->id,
-            contextName: $issue->title ?: 'Issue',
-            senderId: $senderId,
-            body: $body,
-            memberIds: $recipients,
-            mentionUserIds: $recipients,
-        );
-    }
-
-    /**
-     * Rückfrage stellen: die Frage in den Context-Thread des Issues posten (Thread
-     * anlegen, falls keiner) — erwähnt den Package-Verantwortlichen — und das Issue
-     * dem Verantwortlichen zuweisen (Park). Damit fällt es aus assignedTo(worker).
-     * Reclaim: der Mensch weist den Verantwortlichen zurück auf den Worker.
-     *
-     * POST /api/dev/agent/issues/{id}/ask  { question, branch? }
-     */
-    public function ask(Request $request, int $id): JsonResponse
-    {
-        $issue = DevIssue::find($id);
-        if (!$issue) {
-            return response()->json(['message' => 'Issue not found'], 404);
-        }
-        $data = $request->validate([
-            'question' => 'required|string|max:5000',
-            'branch' => 'nullable|string|max:255',
-            'session_id' => 'nullable|string|max:255',
-        ]);
-        $question = $data['question'];
-
-        $this->postToIssueThread($issue, (int) $request->user()?->id, $question);
-
-        // Warten auf Antwort statt zurück-delegieren: Owner bleibt der Worker, das
-        // Issue geht in den Warten-Zustand (agent_waiting_at) → der Claim überspringt
-        // es, solange keine Antwort im Thread steht. Die Claude-Session wird gemerkt,
-        // damit die Antwort sie per --resume fortsetzt (kein Ping-Pong, kein Neuanfang).
-        $issue->update([
-            'agent_waiting_at' => now(),
-            'agent_session_id' => $data['session_id'] ?? $issue->agent_session_id,
-            'agent_branch' => $data['branch'] ?? $issue->agent_branch,
-            'agent_summary' => 'RÜCKFRAGE: ' . $question,
-            'agent_locked_at' => null,
-            'agent_locked_by' => null,
-        ]);
-
-        $issue->logActivity("Agent hat eine Rückfrage im Kontext-Thread gestellt.\n\nFrage: {$question}", [
-            'source' => 'agent',
-            'status' => 'deferred',
-        ]);
-
-        Log::info('[Dev Agent] Rückfrage in Context-Thread', ['issue_id' => $issue->id]);
-
-        return response()->json([
-            'message' => 'Question posted to context thread',
-            'data' => ['id' => $issue->id],
-        ]);
     }
 
     /**
@@ -673,12 +437,6 @@ class AgentController extends Controller
 
         // Close the issue
         $issue->close();
-
-        // Erledigt-Meldung: existiert schon ein Rückfrage-Thread → dort (Kreis schließen),
-        // sonst DM an den Package-Verantwortlichen. Für „fertig" lohnt kein neuer Thread.
-        $doneNote = trim((string) $summary);
-        $body = '✅ Erledigt: '.($issue->title ?: 'Issue').($doneNote !== '' ? "\n\n".$doneNote : '');
-        $this->announceCompletion($issue, (int) $request->user()?->id, $body);
 
         Log::info('[Dev Agent] Issue completed', [
             'issue_id' => $issue->id,
