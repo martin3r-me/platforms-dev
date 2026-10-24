@@ -621,6 +621,39 @@ class AgentController extends Controller
     }
 
     /**
+     * Antwort auf eine Rückfrage ist da (sie kam über TRAAN, nicht mehr über den Chat):
+     * Warten-Zustand auflösen, Antwort am Issue festhalten. Das Issue wird wieder claimbar;
+     * der Worker hat die Antwort selbst und arbeitet damit weiter.
+     *
+     * POST /api/dev/agent/issues/{id}/answer  { answer, by? }
+     */
+    public function answer(Request $request, int $id): JsonResponse
+    {
+        $issue = DevIssue::find($id);
+        if (!$issue) {
+            return response()->json(['message' => 'Issue not found'], 404);
+        }
+        $data = $request->validate([
+            'answer' => 'required|string|max:10000',
+            'by' => 'nullable|string|max:255',
+        ]);
+
+        $issue->update([
+            'agent_waiting_at' => null,
+            'agent_locked_at' => null,
+            'agent_locked_by' => null,
+        ]);
+        $by = trim((string) ($data['by'] ?? ''));
+        $issue->logActivity('Antwort auf die Rückfrage' . ($by !== '' ? " von {$by}" : '') . " (über TRAAN):\n\n" . $data['answer'], [
+            'source' => 'agent',
+            'status' => 'answered',
+        ]);
+        Log::info('[Dev Agent] Rückfrage beantwortet', ['issue_id' => $issue->id]);
+
+        return response()->json(['message' => 'Issue released', 'data' => ['id' => $issue->id]]);
+    }
+
+    /**
      * Unlock a stuck issue (e.g. worker crashed).
      *
      * POST /api/dev/agent/issues/{id}/unlock
