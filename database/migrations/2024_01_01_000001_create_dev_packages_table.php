@@ -16,7 +16,8 @@ return new class extends Migration
             $table->string('name');
             $table->text('description')->nullable();
             $table->string('github_repo_full_name')->nullable();
-            $table->foreignId('github_repo_id')->nullable()->constrained('integrations_github_repositories')->onDelete('set null');
+            // Kein FK über die Modulgrenze: Integrations-Modul ist optional, Integrität sichert der Code.
+            $table->unsignedBigInteger('github_repo_id')->nullable()->index();
             $table->enum('status', ['active', 'archived'])->default('active');
             $table->string('icon')->nullable();
             $table->unsignedInteger('order')->default(0);
