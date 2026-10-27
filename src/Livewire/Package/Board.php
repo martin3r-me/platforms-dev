@@ -2,7 +2,9 @@
 
 namespace Platform\Dev\Livewire\Package;
 
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Component;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Illuminate\Support\Facades\Auth;
 use Platform\Dev\Models\DevPackage;
 use Platform\Dev\Models\DevBoard;
@@ -13,6 +15,8 @@ use Platform\Dev\Services\DevIssueService;
 
 class Board extends Component
 {
+    use HasPageContext;
+
     public DevPackage $package;
     public DevBoard $board;
     public $groups;
@@ -35,48 +39,26 @@ class Board extends Component
         $this->loadGroups();
     }
 
-    public function rendered(): void
+    /** Boards sind kein eigenes Kontext-Objekt — Kontext ist das Package. */
+    protected function pageContext(): ?Model
     {
-        // Comms - Communication/Channel Integration (Package-level)
-        $this->dispatch('comms', [
-            'model' => get_class($this->package),
-            'modelId' => $this->package->id,
-            'subject' => $this->package->name . ' – ' . $this->board->name,
-            'description' => $this->board->description ?? '',
-            'url' => route('dev.packages.boards.show', [$this->package, $this->board]),
+        return $this->package;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
+            'subject' => $this->package->name,
+            'url' => route('dev.packages.show', $this->package),
             'source' => 'dev.board.view',
             'recipients' => array_filter([$this->package->user_in_charge_id]),
-            'capabilities' => [
-                'manage_channels' => true,
-                'threads' => false,
-            ],
+            'capabilities' => ['manage_channels' => true, 'threads' => false],
             'meta' => [
                 'board' => $this->board->name,
                 'board_type' => $this->board->type instanceof \BackedEnum ? $this->board->type->value : $this->board->type,
                 'package' => $this->package->name,
             ],
-        ]);
-
-        // Terminal Activity + Files + Tags
-        $this->dispatch('terminal:app:activity');
-        $this->dispatch('terminal:app:files');
-        $this->dispatch('terminal:app:tags');
-
-        // Organization - Time Tracking + Entity Linking
-        $this->dispatch('organization', [
-            'context_type' => get_class($this->package),
-            'context_id' => $this->package->id,
-            'allow_time_entry' => true,
-            'allow_entities' => true,
-            'allow_dimensions' => true,
-            'include_children_relations' => ['boards.issues'],
-        ]);
-
-        // ExtraFields
-        $this->dispatch('extrafields', [
-            'context_type' => get_class($this->package),
-            'context_id' => $this->package->id,
-        ]);
+        ];
     }
 
     public function loadGroups(): void

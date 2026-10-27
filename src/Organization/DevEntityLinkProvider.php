@@ -24,7 +24,7 @@ class DevEntityLinkProvider implements EntityLinkProvider, HasContextParent, Has
     public function linkTypeConfig(): array
     {
         return [
-            'dev_package' => ['label' => 'Packages', 'singular' => 'Package', 'icon' => 'cube', 'route' => null],
+            'dev_package' => ['label' => 'Packages', 'singular' => 'Package', 'icon' => 'cube', 'route' => 'dev.packages.show'],
             'dev_issue'   => ['label' => 'Issues', 'singular' => 'Issue', 'icon' => 'ticket', 'route' => null],
         ];
     }
@@ -368,5 +368,45 @@ class DevEntityLinkProvider implements EntityLinkProvider, HasContextParent, Has
         $packageId = $object->board?->dev_package_id;
 
         return $packageId ? ['dev_package', (int) $packageId] : null;
+    }
+
+    /**
+     * Beteiligte für ein Gespräch im Kontext (Parlan) — organization fragt per method_exists
+     * (Vertrag HasContextParticipants). Package: Verantwortlicher, Ersteller + Zuständige offener
+     * Issues; Issue: Ersteller + Zuständiger. Sichtbarkeit prüft organization.
+     *
+     * @return list<int>
+     */
+    public function contextParticipants(string $morphAlias, Model $object): array
+    {
+        if ($morphAlias === 'dev_package') {
+            $ids = DevIssue::query()
+                ->whereIn('dev_board_id', $object->boards()->select('id'))
+                ->where('is_done', false)
+                ->whereNotNull('user_in_charge_id')
+                ->distinct()->limit(25)->pluck('user_in_charge_id')->all();
+
+            return array_values(array_unique(array_filter(array_map('intval', array_merge(
+                [$object->user_in_charge_id, $object->created_by_user_id],
+                $ids,
+            )))));
+        }
+        if ($morphAlias === 'dev_issue') {
+            return array_values(array_unique(array_filter([(int) $object->created_by_user_id, (int) $object->user_in_charge_id])));
+        }
+
+        return [];
+    }
+
+    /**
+     * Ist das Objekt erledigt? Dann ruht sein Gespräch in Parlan. null = kein Dev-Objekt.
+     */
+    public function contextDone(string $morphAlias, Model $object): ?bool
+    {
+        return match ($morphAlias) {
+            'dev_package' => $object->status === 'archived',
+            'dev_issue'   => (bool) $object->is_done,
+            default       => null,
+        };
     }
 }

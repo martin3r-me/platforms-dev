@@ -2,7 +2,9 @@
 
 namespace Platform\Dev\Livewire\Package;
 
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Component;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Illuminate\Support\Facades\Auth;
 use Platform\Dev\Models\DevPackage;
 use Platform\Dev\Models\DevDiscussion;
@@ -10,6 +12,8 @@ use Platform\Dev\Models\DevDiscussionReply;
 
 class Discussions extends Component
 {
+    use HasPageContext;
+
     public DevPackage $package;
 
     public ?int $activeDiscussionId = null;
@@ -23,46 +27,21 @@ class Discussions extends Component
         $this->package = $package;
     }
 
-    public function rendered(): void
+    protected function pageContext(): ?Model
     {
-        // Comms - Communication/Channel Integration (Package-level)
-        $this->dispatch('comms', [
-            'model' => get_class($this->package),
-            'modelId' => $this->package->id,
-            'subject' => $this->package->name . ' – Diskussionen',
-            'description' => $this->package->description ?? '',
-            'url' => route('dev.packages.discussions', $this->package),
+        return $this->package;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
+            'subject' => $this->package->name,
+            'url' => route('dev.packages.show', $this->package),
             'source' => 'dev.discussions.view',
             'recipients' => array_filter([$this->package->user_in_charge_id]),
-            'capabilities' => [
-                'manage_channels' => true,
-                'threads' => false,
-            ],
-            'meta' => [
-                'package' => $this->package->name,
-            ],
-        ]);
-
-        // Terminal Activity + Files + Tags
-        $this->dispatch('terminal:app:activity');
-        $this->dispatch('terminal:app:files');
-        $this->dispatch('terminal:app:tags');
-
-        // Organization - Time Tracking + Entity Linking
-        $this->dispatch('organization', [
-            'context_type' => get_class($this->package),
-            'context_id' => $this->package->id,
-            'allow_time_entry' => true,
-            'allow_entities' => true,
-            'allow_dimensions' => true,
-            'include_children_relations' => ['boards.issues'],
-        ]);
-
-        // ExtraFields
-        $this->dispatch('extrafields', [
-            'context_type' => get_class($this->package),
-            'context_id' => $this->package->id,
-        ]);
+            'capabilities' => ['manage_channels' => true, 'threads' => false],
+            'meta' => ['package' => $this->package->name],
+        ];
     }
 
     public function selectDiscussion(int $id): void

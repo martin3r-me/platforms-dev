@@ -2,7 +2,9 @@
 
 namespace Platform\Dev\Livewire\Package;
 
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Component;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Illuminate\Support\Facades\Auth;
 use Platform\Dev\Models\DevPackage;
 use Platform\Dev\Models\DevIssue;
@@ -10,6 +12,8 @@ use Platform\Dev\Services\DevIssueService;
 
 class Issue extends Component
 {
+    use HasPageContext;
+
     public DevPackage $package;
     public DevIssue $issue;
 
@@ -39,51 +43,26 @@ class Issue extends Component
         $this->slotId = $issue->dev_board_slot_id;
     }
 
-    public function rendered(): void
+    protected function pageContext(): ?Model
     {
-        // Comms - Communication (Threads, not channels)
-        $this->dispatch('comms', [
-            'model' => get_class($this->issue),
-            'modelId' => $this->issue->id,
+        return $this->issue;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
             'subject' => $this->issue->title,
-            'description' => $this->issue->description ?? '',
             'url' => route('dev.packages.issues.show', [$this->package, $this->issue]),
             'source' => 'dev.issue.view',
+            // In die Organisation wird das Package gehängt, nicht das einzelne Issue
+            'apps' => ['links' => false],
             'recipients' => array_filter([$this->issue->user_in_charge_id]),
-            'capabilities' => [
-                'manage_channels' => false,
-                'threads' => true,
-            ],
             'meta' => [
                 'priority' => $this->issue->priority instanceof \BackedEnum ? $this->issue->priority->value : $this->issue->priority,
                 'due_date' => $this->issue->due_date,
                 'is_done' => $this->issue->is_done,
             ],
-        ]);
-
-        // Terminal Activity + Files + Tags
-        $this->dispatch('terminal:app:activity');
-        $this->dispatch('terminal:app:files');
-        $this->dispatch('terminal:app:tags');
-
-        // Organization - Time Tracking only (entities/dimensions on package level)
-        $this->dispatch('organization', [
-            'context_type' => get_class($this->issue),
-            'context_id' => $this->issue->id,
-            'linked_contexts' => [
-                ['type' => get_class($this->package), 'id' => $this->package->id],
-            ],
-            'allow_time_entry' => true,
-            'allow_entities' => false,
-            'allow_dimensions' => false,
-        ]);
-
-        // ExtraFields - point to parent package for definitions
-        $this->dispatch('extrafields', [
-            'context_type' => get_class($this->package),
-            'context_id' => $this->package->id,
-        ]);
-
+        ];
     }
 
     // --- Inline Save Methods ---
