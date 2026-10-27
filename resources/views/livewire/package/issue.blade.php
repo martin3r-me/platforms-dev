@@ -4,54 +4,21 @@
     </x-slot>
 
     <x-slot name="actionbar">
-        <x-ui-page-actionbar :breadcrumbs="array_filter([
-            ['label' => 'Dev', 'href' => route('dev.dashboard'), 'icon' => 'code-bracket'],
-            ['label' => $package->name, 'href' => route('dev.packages.show', $package)],
-            $issue->board ? ['label' => $issue->board->name, 'href' => route('dev.packages.boards.show', [$package, $issue->board])] : null,
-            ['label' => Str::limit($issue->title, 40)],
-        ])">
-            {{-- Status-Umschalter (vorher in der Sidebar) --}}
-            <button type="button" wire:click="toggleDone"
-                    class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium rounded-md border transition-colors {{ $issue->is_done ? 'text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100' : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50' }}"
-                    title="{{ $issue->is_done ? 'Wieder öffnen' : 'Schließen' }}">
+        <x-dev::actionbar :package="$package" :crumbs="[['label' => Str::limit($issue->title, 40)]]">
+            <x-slot:more>
                 @if($issue->is_done)
-                    @svg('heroicon-o-arrow-path', 'w-3.5 h-3.5')
-                    <span>Reopen</span>
+                    <x-dev::menu-item icon="heroicon-o-arrow-path" wire:click="toggleDone">Issue wieder öffnen</x-dev::menu-item>
                 @else
-                    @svg('heroicon-s-check-circle', 'w-3.5 h-3.5 text-purple-500')
-                    <span>Close issue</span>
+                    <x-dev::menu-item icon="heroicon-o-check-circle" wire:click="toggleDone">Issue schließen</x-dev::menu-item>
                 @endif
-            </button>
-        </x-ui-page-actionbar>
+                @if($issue->board)
+                    <x-dev::menu-item icon="heroicon-o-view-columns" :href="route('dev.packages.boards.show', [$package, $issue->board])">Zum Board {{ $issue->board->name }}</x-dev::menu-item>
+                @endif
+            </x-slot:more>
+        </x-dev::actionbar>
     </x-slot>
 
-    <x-slot name="activity">
-        <x-ui-page-sidebar title="Aktivitaeten" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
-            <div class="p-6">
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-4">Activity</h3>
-                <div class="space-y-3">
-                    @forelse(($activities ?? []) as $activity)
-                        <div class="px-3 py-2 rounded-md border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors">
-                            <div class="text-sm font-medium text-gray-900 leading-snug mb-1">
-                                {{ $activity['title'] ?? 'Aktivitaet' }}
-                            </div>
-                            <div class="flex items-center gap-2 text-xs text-gray-500">
-                                @svg('heroicon-o-clock', 'w-3 h-3')
-                                <span>{{ $activity['time'] ?? '' }}</span>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="py-8 text-center">
-                            @svg('heroicon-o-clock', 'w-8 h-8 text-gray-300 mx-auto mb-3')
-                            <p class="text-sm text-gray-500">No activity yet</p>
-                        </div>
-                    @endforelse
-                </div>
-            </div>
-        </x-ui-page-sidebar>
-    </x-slot>
-
-    <x-ui-page-container spacing="space-y-6">
+    <x-dev::body>
         {{-- Header Section --}}
         <div class="bg-white rounded-md border border-gray-200 overflow-hidden">
             <div class="p-6 lg:p-8">
@@ -124,15 +91,17 @@
                     {{-- Status Badges --}}
                     <div class="flex flex-col items-end gap-2 flex-shrink-0">
                         @if($issue->is_done)
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold border border-purple-200">
+                            <button type="button" wire:click="toggleDone" title="Wieder öffnen"
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-semibold border border-purple-200 transition-colors">
                                 @svg('heroicon-s-check-circle', 'w-3.5 h-3.5')
                                 Closed
-                            </span>
+                            </button>
                         @else
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold border border-green-200">
+                            <button type="button" wire:click="toggleDone" title="Schließen"
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-100 hover:bg-green-200 text-green-700 text-xs font-semibold border border-green-200 transition-colors">
                                 <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
                                 Open
-                            </span>
+                            </button>
                         @endif
                         @php $priorityValue = $issue->priority instanceof \BackedEnum ? $issue->priority->value : $issue->priority; @endphp
                         @if($priorityValue === 'high')
@@ -400,5 +369,5 @@
                 @endif
             </div>
         </div>
-    </x-ui-page-container>
+    </x-dev::body>
 </x-ui-page>

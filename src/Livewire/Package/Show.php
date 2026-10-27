@@ -43,6 +43,14 @@ class Show extends Component
     public function mount(DevPackage $package): void
     {
         $this->package = $package;
+
+        // Einstieg aus der Dev-Actionbar anderer Seiten (?aktion=…)
+        match (request()->query('aktion')) {
+            'settings' => $this->startEditingPackage(),
+            'errors' => $this->openErrorSettings(),
+            'board' => $this->showCreateBoardModal = true,
+            default => null,
+        };
     }
 
     public function startEditingPackage(): void

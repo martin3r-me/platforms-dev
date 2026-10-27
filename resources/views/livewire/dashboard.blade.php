@@ -4,23 +4,10 @@
     </x-slot>
 
     <x-slot name="actionbar">
-        <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'Dev', 'icon' => 'code-bracket'],
-        ]">
-            <button wire:click="$set('showErrorTracking', true)"
-                    class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md border border-gray-300 transition-colors">
-                @svg('heroicon-o-bug-ant', 'w-3.5 h-3.5')
-                <span>Error Tracking</span>
-            </button>
-            <button wire:click="openActivateModal"
-                    class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium text-white bg-[#238636] hover:bg-[#2ea043] rounded-md border border-[#2ea043] transition-colors">
-                @svg('heroicon-o-plus', 'w-3.5 h-3.5')
-                <span>New package</span>
-            </button>
-        </x-ui-page-actionbar>
+        <x-dev::actionbar />
     </x-slot>
 
-    <x-ui-page-container>
+    <x-dev::body>
         {{-- Stats Counter Row --}}
         <div class="flex items-center gap-8 py-4 mb-8 border-b border-gray-200">
             <div class="flex items-baseline gap-1.5">
@@ -270,7 +257,7 @@
                 </div>
             </div>
         </div>
-    </x-ui-page-container>
+    </x-dev::body>
 
     {{-- Error Tracking Modal --}}
     @if($showErrorTracking)

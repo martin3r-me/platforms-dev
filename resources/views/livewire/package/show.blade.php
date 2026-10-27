@@ -4,99 +4,18 @@
     </x-slot>
 
     <x-slot name="actionbar">
-        <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'Dev', 'href' => route('dev.dashboard'), 'icon' => 'code-bracket'],
-            ['label' => $package->name],
-        ]">
-            @if(!$editingPackage)
-                {{-- Health-Pille — Klick-Einstieg zur Package-Health-Detail-Sicht --}}
-                @if($latestSnapshot)
-                    @php
-                        $hc = $latestSnapshot->health_color ?? 'gray';
-                        $hs = $latestSnapshot->health_score;
-                        $healthTones = [
-                            'green'  => ['border' => 'border-emerald-300', 'bg' => 'bg-emerald-50',  'hover' => 'hover:bg-emerald-100', 'fg' => 'text-emerald-700', 'dot' => 'bg-emerald-500', 'label' => 'Stabil'],
-                            'yellow' => ['border' => 'border-amber-300',   'bg' => 'bg-amber-50',    'hover' => 'hover:bg-amber-100',   'fg' => 'text-amber-700',   'dot' => 'bg-amber-500',   'label' => 'Achtung'],
-                            'red'    => ['border' => 'border-rose-300',    'bg' => 'bg-rose-50',     'hover' => 'hover:bg-rose-100',    'fg' => 'text-rose-700',    'dot' => 'bg-rose-500',    'label' => 'Brennt'],
-                            'gray'   => ['border' => 'border-zinc-300',    'bg' => 'bg-zinc-50',     'hover' => 'hover:bg-zinc-100',    'fg' => 'text-zinc-600',    'dot' => 'bg-zinc-400',    'label' => 'Keine Daten'],
-                        ];
-                        $t = $healthTones[$hc] ?? $healthTones['gray'];
-                        $delta = $latestSnapshot->delta_health_score;
-                        $trendArrow = $delta === null || $delta === 0 ? null : ($delta > 0 ? '↑' : '↓');
-                        $worstAxisLabel = match($latestSnapshot->worst_axis) {
-                            'bug_pressure' => 'Bug-Druck', 'feature_velocity' => 'Feature-Velocity',
-                            'production_health' => 'Production', 'doc_coverage' => 'Doku',
-                            default => null,
-                        };
-                    @endphp
-                    <a href="{{ route('dev.packages.health', $package) }}"
-                       wire:navigate
-                       title="Snapshot {{ optional($latestSnapshot->taken_on)->format('d.m.Y') }} · Health {{ $hs ?? '–' }} ({{ $hc }}) · Confidence {{ $latestSnapshot->confidence_score }}%"
-                       class="group inline-flex items-stretch h-9 rounded-lg border {{ $t['border'] }} {{ $t['bg'] }} {{ $t['hover'] }} text-[12px] {{ $t['fg'] }} font-medium overflow-hidden shadow-sm transition-all hover:shadow-md">
-                        <span class="flex items-center gap-2 px-3 border-r {{ $t['border'] }}/70">
-                            <span class="w-2 h-2 rounded-full {{ $t['dot'] }} animate-pulse"></span>
-                            <span class="text-base font-bold tabular-nums leading-none">{{ $hs ?? '–' }}</span>
-                        </span>
-                        <span class="flex items-center gap-1.5 px-3">
-                            <span class="text-[10px] uppercase tracking-wider opacity-70">{{ $worstAxisLabel ?? $t['label'] }}</span>
-                            @if($trendArrow)
-                                <span class="text-[11px] tabular-nums opacity-80">{{ $trendArrow }}{{ abs($delta) }}</span>
-                            @endif
-                            @svg('heroicon-o-arrow-top-right-on-square', 'w-3 h-3 opacity-50 group-hover:opacity-100 transition-opacity')
-                        </span>
-                    </a>
-                @else
-                    <a href="{{ route('dev.packages.health', $package) }}"
-                       wire:navigate
-                       title="Noch kein Snapshot vorhanden"
-                       class="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-dashed border-gray-300 bg-white hover:bg-gray-50 text-[12px] text-gray-500 hover:text-gray-700 transition-colors">
-                        @svg('heroicon-o-heart', 'w-4 h-4')
-                        <span class="font-medium">Health</span>
-                        @svg('heroicon-o-arrow-right', 'w-3 h-3 opacity-50')
-                    </a>
+        <x-dev::actionbar :package="$package">
+            <x-slot:more>
+                @if($package->isLocked() && $package->locked_by_user_id === auth()->id())
+                    <x-dev::menu-item icon="heroicon-o-lock-open" wire:click="unlockPackage">Freigeben</x-dev::menu-item>
+                @elseif(! $package->isLocked())
+                    <x-dev::menu-item icon="heroicon-o-lock-closed" wire:click="lockPackage">Ich arbeite daran</x-dev::menu-item>
                 @endif
-
-                <button wire:click="openErrorSettings"
-                        class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 rounded-md border border-gray-300 transition-colors">
-                    @svg('heroicon-o-bug-ant', 'w-3.5 h-3.5')
-                    <span>Error Tracking</span>
-                </button>
-                <button wire:click="startEditingPackage"
-                        class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 rounded-md border border-gray-300 transition-colors">
-                    @svg('heroicon-o-pencil', 'w-3.5 h-3.5')
-                    <span>Settings</span>
-                </button>
-            @endif
-        </x-ui-page-actionbar>
+            </x-slot:more>
+        </x-dev::actionbar>
     </x-slot>
 
-    <x-slot name="activity">
-        <x-ui-page-sidebar title="Aktivitaeten" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
-            <div class="p-5">
-                <h3 class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-4">Recent activity</h3>
-                <div class="space-y-2">
-                    @forelse(($activities ?? []) as $activity)
-                        <div class="px-3 py-2.5 rounded-md border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors">
-                            <div class="text-xs font-medium text-gray-900 leading-snug mb-1">
-                                {{ $activity['title'] ?? 'Aktivitaet' }}
-                            </div>
-                            <div class="flex items-center gap-1.5 text-[11px] text-gray-500">
-                                @svg('heroicon-o-clock', 'w-3 h-3')
-                                <span>{{ $activity['time'] ?? '' }}</span>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="py-10 text-center">
-                            @svg('heroicon-o-clock', 'w-8 h-8 text-gray-300 mx-auto mb-3')
-                            <p class="text-xs text-gray-500">No activity yet</p>
-                        </div>
-                    @endforelse
-                </div>
-            </div>
-        </x-ui-page-sidebar>
-    </x-slot>
-
-    <x-ui-page-container>
+    <x-dev::body>
         @if($editingPackage)
             {{-- Package Edit Modal --}}
             <x-ui-modal wire:model="editingPackage" size="md" :backdropClosable="true" :escClosable="true">
@@ -166,7 +85,7 @@
             </x-ui-modal>
         @endif
 
-        <div class="max-w-5xl mx-auto px-6 py-6">
+        <div>
             {{-- Lock Banner --}}
             @if($package->isLocked())
                 <div class="mb-5 rounded-md border border-amber-300 bg-amber-50 px-5 py-3 flex items-center justify-between">
@@ -259,42 +178,6 @@
                     </span>
                 </div>
 
-                {{-- GitHub-style Tab Navigation --}}
-                <div class="border-b border-gray-200 -mx-6 px-6">
-                    <nav class="flex items-center gap-1 -mb-px">
-                        <a href="{{ route('dev.packages.show', $package) }}"
-                           class="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 border-[#f78166] text-gray-900 transition-colors">
-                            <svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.744 3.744 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75Zm7.251 10.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574ZM8.755 4.75l-.004 7.322a3.752 3.752 0 0 1 1.992-.572H14.5v-9h-3.495a2.25 2.25 0 0 0-2.25 2.25Z"/></svg>
-                            Overview
-                        </a>
-                        @foreach($boards as $board)
-                            <a href="{{ route('dev.packages.boards.show', [$package, $board]) }}"
-                               wire:navigate
-                               class="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300 transition-colors">
-                                @if($board->type->value === 'bug')
-                                    @svg('heroicon-o-bug-ant', 'w-4 h-4 text-red-500')
-                                @elseif($board->type->value === 'feature')
-                                    @svg('heroicon-o-light-bulb', 'w-4 h-4 text-blue-500')
-                                @else
-                                    @svg('heroicon-o-view-columns', 'w-4 h-4')
-                                @endif
-                                {{ $board->name }}
-                                @if($board->open_issues_count > 0)
-                                    <span class="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-neutral-200/80 text-gray-600 tabular-nums leading-none">{{ $board->open_issues_count }}</span>
-                                @endif
-                            </a>
-                        @endforeach
-                        <a href="{{ route('dev.packages.docs', $package) }}"
-                           wire:navigate
-                           class="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300 transition-colors">
-                            @svg('heroicon-o-book-open', 'w-4 h-4')
-                            Docs
-                            @if($docPageCount > 0)
-                                <span class="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-neutral-200/80 text-gray-600 tabular-nums leading-none">{{ $docPageCount }}</span>
-                            @endif
-                        </a>
-                    </nav>
-                </div>
             </div>
 
             {{-- Error Occurrences --}}
@@ -630,7 +513,7 @@
             </div>
 
         </div>
-    </x-ui-page-container>
+    </x-dev::body>
 
     {{-- Create Board Modal --}}
     @if($showCreateBoardModal)

@@ -16,116 +16,37 @@
     </x-slot>
 
     <x-slot name="actionbar">
-        <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'Dev', 'href' => route('dev.dashboard'), 'icon' => 'home'],
-            ['label' => 'Health-Index'],
-        ]">
-            <x-slot name="left">
-                @php $selectCls = 'h-7 max-w-[11rem] rounded-md border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] text-xs text-[color:var(--nx-text)] pl-2 pr-7 py-0 focus:ring-0'; @endphp
-                <select wire:model.live="axisFilter" class="{{ $selectCls }}" title="Schwächste Achse">
-                    <option value="all">Alle Achsen</option>
-                    @foreach($axisLabels as $axisKey => $axisName)
-                        <option value="{{ $axisKey }}">{{ $axisName }} ({{ $byAxis[$axisKey] ?? 0 }})</option>
+        <x-dev::actionbar :filters-active="($colorFilter !== 'all' ? 1 : 0) + ($axisFilter !== 'all' ? 1 : 0)">
+            <x-slot:filters>
+                <x-dev::filter-group label="Ampel">
+                    <x-dev::chip :active="$colorFilter === 'all'" :count="array_sum($byColor)" wire:click="$set('colorFilter', 'all')">Alle</x-dev::chip>
+                    @foreach(['red', 'yellow', 'green', 'gray'] as $c)
+                        <x-dev::chip :active="$colorFilter === $c" :dot="$tone($c)['dot']" :count="$byColor[$c] ?? 0" wire:click="$set('colorFilter', '{{ $c }}')">{{ $tone($c)['label'] }}</x-dev::chip>
                     @endforeach
-                </select>
-                <select wire:model.live="sort" class="{{ $selectCls }} hidden sm:block" title="Sortierung">
+                </x-dev::filter-group>
+                <x-dev::filter-group label="Schwächste Achse">
+                    <x-dev::chip :active="$axisFilter === 'all'" wire:click="$set('axisFilter', 'all')">Alle</x-dev::chip>
+                    @foreach($axisLabels as $axisKey => $axisName)
+                        <x-dev::chip :active="$axisFilter === $axisKey" :count="$byAxis[$axisKey] ?? 0" wire:click="$set('axisFilter', '{{ $axisKey }}')">{{ $axisName }}</x-dev::chip>
+                    @endforeach
+                </x-dev::filter-group>
+                <x-dev::filter-group label="Sortierung" :stack="true">
                     @foreach([
                         'worst' => 'Schlimmste zuerst',
                         'best' => 'Beste zuerst',
-                        'confidence' => 'Geringste Confidence',
-                        'movement' => 'Letzte Bewegung',
+                        'confidence' => 'Geringste Confidence zuerst',
+                        'movement' => 'Letzte Bewegung zuerst',
                         'name' => 'Name (A→Z)',
                     ] as $key => $label)
-                        <option value="{{ $key }}">{{ $label }}</option>
+                        <x-dev::chip :row="true" :active="$sort === $key" wire:click="$set('sort', '{{ $key }}')">{{ $label }}</x-dev::chip>
                     @endforeach
-                </select>
-            </x-slot>
-        </x-ui-page-actionbar>
-    </x-slot>
-
-    <x-slot name="activity">
-        <x-ui-page-sidebar title="Bewegung" icon="heroicon-o-bolt" width="w-80" :defaultOpen="true" storeKey="activityOpen" side="right">
-            <div class="p-4 space-y-4 bg-[var(--ui-muted-5)]">
-                <section class="p-3 rounded-lg bg-white border border-[var(--ui-border)]/40 shadow-sm">
-                    <h3 class="text-[10px] font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-2">Scope</h3>
-                    <div class="grid grid-cols-2 gap-2 text-center">
-                        <div>
-                            <div class="text-xl font-bold tabular-nums text-[var(--ui-secondary)]">{{ $totalAll }}</div>
-                            <div class="text-[10px] uppercase tracking-wider text-[var(--ui-muted)]">Packages</div>
-                        </div>
-                        <div>
-                            <div class="text-xl font-bold tabular-nums text-[var(--ui-secondary)]">{{ $movedPackagesCount }}</div>
-                            <div class="text-[10px] uppercase tracking-wider text-[var(--ui-muted)]">bewegt vs Vortag</div>
-                        </div>
-                    </div>
-                </section>
-
-                @if($totalErrorsLive > 0)
-                    <section class="p-3 rounded-lg bg-rose-50 border border-rose-200">
-                        <h3 class="text-[10px] font-semibold uppercase tracking-wider text-rose-700 mb-2 inline-flex items-center gap-1.5">
-                            @svg('heroicon-o-fire', 'w-3 h-3')
-                            <span>Production-Errors</span>
-                        </h3>
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-rose-700">Live</span>
-                            <span class="font-bold tabular-nums text-rose-700">{{ $totalErrorsLive }}</span>
-                        </div>
-                        <div class="flex items-center justify-between text-xs mt-1">
-                            <span class="text-rose-700">Hits gesamt</span>
-                            <span class="font-bold tabular-nums text-rose-700">{{ number_format($totalErrorsHits, 0, ',', '.') }}</span>
-                        </div>
-                    </section>
-                @endif
-
-                @if($topGainers->isNotEmpty())
-                    <section class="p-3 rounded-lg bg-white border border-[var(--ui-border)]/40 shadow-sm">
-                        <h3 class="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 mb-2 inline-flex items-center gap-1.5">
-                            @svg('heroicon-o-arrow-trending-up', 'w-3 h-3')
-                            <span>Größte Gewinner</span>
-                        </h3>
-                        <ul class="space-y-1.5">
-                            @foreach($topGainers as $s)
-                                @php $t = $tone($s->health_color); @endphp
-                                <li>
-                                    <a href="{{ route('dev.packages.health', $s->dev_package_id) }}" wire:navigate
-                                       class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--ui-muted-5)] transition-colors group">
-                                        <span class="w-2 h-2 rounded-full {{ $t['dot'] }} flex-shrink-0"></span>
-                                        <span class="flex-1 min-w-0 text-[12px] text-[var(--ui-secondary)] truncate group-hover:text-emerald-700">{{ $s->package?->name }}</span>
-                                        <span class="text-[11px] tabular-nums font-semibold text-emerald-600 flex-shrink-0">↑{{ $s->delta_health_score }}</span>
-                                    </a>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </section>
-                @endif
-
-                @if($topLosers->isNotEmpty())
-                    <section class="p-3 rounded-lg bg-white border border-[var(--ui-border)]/40 shadow-sm">
-                        <h3 class="text-[10px] font-semibold uppercase tracking-wider text-rose-700 mb-2 inline-flex items-center gap-1.5">
-                            @svg('heroicon-o-arrow-trending-down', 'w-3 h-3')
-                            <span>Größte Verlierer</span>
-                        </h3>
-                        <ul class="space-y-1.5">
-                            @foreach($topLosers as $s)
-                                @php $t = $tone($s->health_color); @endphp
-                                <li>
-                                    <a href="{{ route('dev.packages.health', $s->dev_package_id) }}" wire:navigate
-                                       class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--ui-muted-5)] transition-colors group">
-                                        <span class="w-2 h-2 rounded-full {{ $t['dot'] }} flex-shrink-0"></span>
-                                        <span class="flex-1 min-w-0 text-[12px] text-[var(--ui-secondary)] truncate group-hover:text-rose-700">{{ $s->package?->name }}</span>
-                                        <span class="text-[11px] tabular-nums font-semibold text-rose-600 flex-shrink-0">↓{{ abs($s->delta_health_score) }}</span>
-                                    </a>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </section>
-                @endif
-            </div>
-        </x-ui-page-sidebar>
+                </x-dev::filter-group>
+            </x-slot:filters>
+        </x-dev::actionbar>
     </x-slot>
 
     <div class="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
-        <div class="px-4 pt-3 pb-3 border-b border-[var(--ui-border)]/40 bg-white">
+        <div class="px-3 sm:px-6 pt-3 pb-3 border-b border-[var(--ui-border)]/40 bg-white">
             <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 mb-3">
                 <div class="min-w-0">
                     <h1 class="text-base font-semibold text-[var(--ui-secondary)] truncate m-0 leading-tight inline-flex items-center gap-2">
@@ -168,7 +89,7 @@
             </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-4 py-3 bg-[var(--ui-muted-5)]">
+        <div class="flex-1 overflow-y-auto px-3 sm:px-6 py-3 bg-[var(--ui-muted-5)]">
             @if($snapshots->isEmpty())
                 <div class="rounded-xl border border-[var(--ui-border)] bg-white p-12 text-center">
                     <div class="mx-auto w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center mb-3">

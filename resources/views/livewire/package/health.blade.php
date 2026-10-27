@@ -54,72 +54,22 @@
     </x-slot>
 
     <x-slot name="actionbar">
-        <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'Dev', 'href' => route('dev.dashboard'), 'icon' => 'home'],
-            ['label' => $package->name, 'href' => route('dev.packages.show', $package)],
-            ['label' => 'Health'],
-        ]">
-            <x-slot name="left">
-                {{-- Trend-Zeitraum (vorher in der Sidebar) --}}
-                <div class="inline-flex rounded-md border border-[var(--ui-border)] overflow-hidden" title="Trend-Zeitraum">
-                    @foreach([7, 30, 90, 180] as $i => $opt)
-                        <button type="button" wire:click="setTrendDays({{ $opt }})"
-                                class="px-2 h-7 text-[11px] font-medium transition-colors {{ $i > 0 ? 'border-l border-[var(--ui-border)]' : '' }} {{ $trendDays === $opt ? 'bg-indigo-600 text-white' : 'bg-transparent text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
-                            {{ $opt }}d
-                        </button>
+        <x-dev::actionbar :package="$package" :filters-active="$trendDays !== 30 ? 1 : 0">
+            <x-slot:filters>
+                <x-dev::filter-group label="Trend-Zeitraum">
+                    @foreach([7, 30, 90, 180] as $opt)
+                        <x-dev::chip :active="$trendDays === $opt" wire:click="setTrendDays({{ $opt }})">{{ $opt }} Tage</x-dev::chip>
                     @endforeach
-                </div>
-            </x-slot>
-            <x-ui-button variant="secondary" size="sm" wire:click="refreshSnapshot" title="Snapshot jetzt neu rechnen">
-                @svg('heroicon-o-arrow-path', 'w-4 h-4')
-                <span>Neu rechnen</span>
-            </x-ui-button>
-        </x-ui-page-actionbar>
-    </x-slot>
-
-    <x-slot name="activity">
-        <x-ui-page-sidebar title="Bewegung" icon="heroicon-o-bolt" width="w-72" :defaultOpen="true" storeKey="activityOpen" side="right">
-            <div class="p-4 space-y-4">
-                @if($latest)
-                    <section class="space-y-2">
-                        <div class="text-[10px] uppercase tracking-wider text-[var(--ui-muted)] font-semibold">Veränderung zum Vortag</div>
-                        @php
-                            $delta = $latest->delta_health_score;
-                            $deltaArrow = $delta === null || $delta === 0 ? null : ($delta > 0 ? '↑' : '↓');
-                            $deltaColor = $delta === null ? 'text-zinc-400' : ($delta > 0 ? 'text-emerald-600' : 'text-rose-600');
-                        @endphp
-                        <div class="flex items-center justify-between text-xs py-1">
-                            <span class="text-[var(--ui-muted)]">Health-Score</span>
-                            <span class="tabular-nums {{ $deltaColor }} font-medium">
-                                {{ $deltaArrow ? $deltaArrow . ' ' . abs($delta) : '–' }}
-                            </span>
-                        </div>
-                    </section>
-
-                    @if($trend->count() > 1)
-                        <section class="space-y-2">
-                            <div class="text-[10px] uppercase tracking-wider text-[var(--ui-muted)] font-semibold">Letzte Snapshots</div>
-                            <ul class="space-y-1">
-                                @foreach($trend->take(-7)->reverse() as $point)
-                                    @php $pt = $tone($point->health_color); @endphp
-                                    <li class="flex items-center justify-between text-xs py-1">
-                                        <span class="flex items-center gap-2">
-                                            <span class="w-1.5 h-1.5 rounded-full {{ $pt['dot'] }}"></span>
-                                            <span class="text-[var(--ui-muted)] tabular-nums text-[11px]">{{ $point->taken_on?->format('d.m.') }}</span>
-                                        </span>
-                                        <span class="tabular-nums font-medium {{ $pt['fg'] }}">{{ $point->health_score ?? '–' }}</span>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        </section>
-                    @endif
-                @endif
-            </div>
-        </x-ui-page-sidebar>
+                </x-dev::filter-group>
+            </x-slot:filters>
+            <x-slot:more>
+                <x-dev::menu-item icon="heroicon-o-arrow-path" wire:click="refreshSnapshot">Snapshot neu rechnen</x-dev::menu-item>
+            </x-slot:more>
+        </x-dev::actionbar>
     </x-slot>
 
     <div class="flex-1 min-h-0 overflow-y-auto bg-[var(--ui-muted-5)]">
-        <div class="max-w-6xl mx-auto p-6 space-y-5">
+        <div class="w-full px-3 sm:px-6 py-4 sm:py-6 space-y-5">
 
         @if(!$latest)
             <div class="rounded-xl border border-[var(--ui-border)] bg-white p-16 text-center">

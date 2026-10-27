@@ -20,6 +20,16 @@ class Dashboard extends Component
     public bool $showActivateModal = false;
     public bool $showErrorTracking = false;
 
+    public function mount(): void
+    {
+        // Einstieg aus der Dev-Actionbar anderer Seiten (?aktion=…)
+        match (request()->query('aktion')) {
+            'package' => $this->openActivateModal(),
+            'errors' => $this->showErrorTracking = true,
+            default => null,
+        };
+    }
+
     public function openActivateModal(): void
     {
         $this->activatePackageName = '';

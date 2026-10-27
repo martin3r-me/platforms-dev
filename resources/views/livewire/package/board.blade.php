@@ -4,126 +4,20 @@
     </x-slot>
 
     <x-slot name="actionbar">
-        <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'Dev', 'href' => route('dev.dashboard'), 'icon' => 'code-bracket'],
-            ['label' => $package->name, 'href' => route('dev.packages.show', $package)],
-            ['label' => $board->name],
-        ]">
-            <x-slot name="left">
-                {{-- Board Switcher Dropdown --}}
-                <div x-data="{ open: false }" class="relative">
-                    <button @click="open = !open" class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
-                        @if($board->type->value === 'bug')
-                            @svg('heroicon-o-bug-ant', 'w-3.5 h-3.5 text-red-500')
-                        @else
-                            @svg('heroicon-o-light-bulb', 'w-3.5 h-3.5 text-blue-500')
-                        @endif
-                        <span>{{ $board->name }}</span>
-                        @svg('heroicon-o-chevron-down', 'w-3 h-3 text-gray-400')
-                    </button>
-                    <div
-                        x-show="open"
-                        x-transition:enter="transition ease-out duration-100"
-                        x-transition:enter-start="opacity-0 scale-95"
-                        x-transition:enter-end="opacity-100 scale-100"
-                        x-transition:leave="transition ease-in duration-75"
-                        x-transition:leave-start="opacity-100 scale-100"
-                        x-transition:leave-end="opacity-0 scale-95"
-                        @click.outside="open = false"
-                        class="absolute left-0 mt-1 w-64 rounded-md bg-white border border-gray-200 z-50 py-1 top-full shadow-lg"
-                        style="display: none;"
-                    >
-                        @foreach($allBoards as $b)
-                            <a href="{{ route('dev.packages.boards.show', [$package, $b]) }}"
-                               wire:navigate
-                               @click="open = false"
-                               class="flex items-center gap-2.5 px-4 py-2 text-xs transition-colors {{ $b->id === $board->id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50' }}">
-                                @if($b->id === $board->id)
-                                    @svg('heroicon-o-check', 'w-3.5 h-3.5 flex-shrink-0')
-                                @elseif($b->type->value === 'bug')
-                                    @svg('heroicon-o-bug-ant', 'w-3.5 h-3.5 text-red-500 flex-shrink-0')
-                                @else
-                                    @svg('heroicon-o-light-bulb', 'w-3.5 h-3.5 text-blue-500 flex-shrink-0')
-                                @endif
-                                <span class="flex-grow-1 truncate">{{ $b->name }}</span>
-                                <span class="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-neutral-200/80 text-gray-600 tabular-nums">{{ $b->open_issues_count }}</span>
-                            </a>
-                        @endforeach
-                    </div>
-                </div>
-                {{-- Erledigte ein-/ausblenden (vorher in der Sidebar) --}}
-                <button type="button" wire:click="toggleShowDone"
-                        class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium rounded-md border transition-colors {{ $showDone ? 'text-purple-700 bg-purple-50 border-purple-200' : 'text-gray-600 border-gray-300 hover:bg-gray-50' }}"
-                        title="{{ $showDone ? 'Geschlossene Issues ausblenden' : 'Geschlossene Issues anzeigen' }}">
-                    @svg($showDone ? 'heroicon-o-eye' : 'heroicon-o-eye-slash', 'w-3.5 h-3.5')
-                    <span class="hidden sm:inline">Closed</span>
-                </button>
-            </x-slot>
-            {{-- Board Actions --}}
-            <div x-data="{ open: false }" class="relative inline-flex">
-                <button wire:click="openBoardSettings"
-                        class="inline-flex items-center px-2 py-[5px] text-xs text-gray-600 hover:bg-gray-100 rounded-l-md border border-gray-300 border-r-0 transition-colors">
-                    @svg('heroicon-o-cog-6-tooth', 'w-3.5 h-3.5')
-                </button>
-                <button
-                    @click="open = !open"
-                    class="inline-flex items-center px-1.5 py-[5px] border border-gray-300 rounded-r-md hover:bg-gray-50 transition-colors"
-                >
-                    @svg('heroicon-o-chevron-down', 'w-3 h-3 text-gray-500')
-                </button>
-                <div
-                    x-show="open"
-                    x-transition:enter="transition ease-out duration-100"
-                    x-transition:enter-start="opacity-0 scale-95"
-                    x-transition:enter-end="opacity-100 scale-100"
-                    x-transition:leave="transition ease-in duration-75"
-                    x-transition:leave-start="opacity-100 scale-100"
-                    x-transition:leave-end="opacity-0 scale-95"
-                    @click.outside="open = false"
-                    class="absolute right-0 mt-1 w-48 rounded-md bg-white border border-gray-200 z-50 py-1 top-full shadow-lg"
-                    style="display: none;"
-                >
-                    <button wire:click="openBoardSettings" @click="open = false"
-                            class="flex items-center gap-2 w-full px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors text-left">
-                        @svg('heroicon-o-pencil', 'w-3.5 h-3.5 text-gray-400')
-                        Rename board
-                    </button>
-                    <button wire:click="createBoardSlot" @click="open = false"
-                            class="flex items-center gap-2 w-full px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors text-left">
-                        @svg('heroicon-o-square-2-stack', 'w-3.5 h-3.5 text-gray-400')
-                        Add column
-                    </button>
-                    <div class="border-t border-gray-100 my-1"></div>
-                    <button wire:click="archiveBoard" wire:confirm="Board wirklich archivieren? Issues bleiben erhalten."
-                            @click="open = false"
-                            class="flex items-center gap-2 w-full px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors text-left">
-                        @svg('heroicon-o-archive-box', 'w-3.5 h-3.5')
-                        Archive board
-                    </button>
-                </div>
-            </div>
-        </x-ui-page-actionbar>
-    </x-slot>
-
-    <x-slot name="activity">
-        <x-ui-page-sidebar title="Activity" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
-            <div class="p-5">
-                <h3 class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-4">Recent activity</h3>
-                <div class="space-y-2">
-                    @forelse(($activities ?? []) as $activity)
-                        <div class="px-3 py-2 rounded-md border border-gray-100 bg-gray-50 text-xs">
-                            <div class="font-medium text-gray-900 mb-0.5">{{ $activity['title'] ?? 'Activity' }}</div>
-                            <div class="text-[11px] text-gray-400">{{ $activity['time'] ?? '' }}</div>
-                        </div>
-                    @empty
-                        <div class="py-8 text-center">
-                            @svg('heroicon-o-clock', 'w-6 h-6 text-gray-200 mx-auto mb-2')
-                            <p class="text-[11px] text-gray-500">No activity yet</p>
-                        </div>
-                    @endforelse
-                </div>
-            </div>
-        </x-ui-page-sidebar>
+        <x-dev::actionbar :package="$package" :filters-active="$showDone ? 1 : 0">
+            <x-slot:filters>
+                <x-dev::filter-group label="Ansicht">
+                    <x-dev::chip :active="$showDone" icon="heroicon-o-check-circle" wire:click="toggleShowDone">Geschlossene Issues anzeigen</x-dev::chip>
+                </x-dev::filter-group>
+            </x-slot:filters>
+            <x-slot:create>
+                <x-dev::menu-item icon="heroicon-o-square-2-stack" wire:click="createBoardSlot">Spalte</x-dev::menu-item>
+            </x-slot:create>
+            <x-slot:more>
+                <x-dev::menu-item icon="heroicon-o-pencil" wire:click="openBoardSettings">Board umbenennen</x-dev::menu-item>
+                <x-dev::menu-item icon="heroicon-o-archive-box" :danger="true" wire:click="archiveBoard" wire:confirm="Board wirklich archivieren? Issues bleiben erhalten.">Board archivieren</x-dev::menu-item>
+            </x-slot:more>
+        </x-dev::actionbar>
     </x-slot>
 
     @php
@@ -137,7 +31,7 @@
     @endphp
     <div class="flex-1 min-w-0 min-h-0 flex flex-col">
     {{-- Kennzahlen (vorher in der Sidebar) --}}
-    <div class="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1.5 border-b border-gray-200 bg-white text-xs text-gray-500">
+    <x-dev::statusbar class="gap-x-4 gap-y-1">
         <span><span class="font-medium text-gray-900 tabular-nums">{{ $statsOpen }}</span> open</span>
         <span><span class="font-medium text-green-600 tabular-nums">{{ $statsDone }}</span> closed</span>
         @if($statsHigh > 0)
@@ -155,7 +49,7 @@
         @if($board->description)
             <span class="hidden md:inline truncate min-w-0 flex-1 text-right text-gray-400" title="{{ $board->description }}">{{ $board->description }}</span>
         @endif
-    </div>
+    </x-dev::statusbar>
 
     <!-- Kanban-Board -->
     <div class="flex-1 min-h-0">

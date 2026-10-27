@@ -76,6 +76,7 @@ class DevServiceProvider extends ServiceProvider
         ], 'config');
 
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'dev');
+        \Illuminate\Support\Facades\Blade::anonymousComponentPath(__DIR__ . '/../resources/views/components', 'dev');
 
         // Organization Entity Links (loose coupling)
         try {
