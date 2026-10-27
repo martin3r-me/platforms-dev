@@ -10,100 +10,19 @@
             $issue->board ? ['label' => $issue->board->name, 'href' => route('dev.packages.boards.show', [$package, $issue->board])] : null,
             ['label' => Str::limit($issue->title, 40)],
         ])">
+            {{-- Status-Umschalter (vorher in der Sidebar) --}}
+            <button type="button" wire:click="toggleDone"
+                    class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium rounded-md border transition-colors {{ $issue->is_done ? 'text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100' : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50' }}"
+                    title="{{ $issue->is_done ? 'Wieder öffnen' : 'Schließen' }}">
+                @if($issue->is_done)
+                    @svg('heroicon-o-arrow-path', 'w-3.5 h-3.5')
+                    <span>Reopen</span>
+                @else
+                    @svg('heroicon-s-check-circle', 'w-3.5 h-3.5 text-purple-500')
+                    <span>Close issue</span>
+                @endif
+            </button>
         </x-ui-page-actionbar>
-    </x-slot>
-
-    <x-slot name="sidebar">
-        <x-ui-page-sidebar title="Uebersicht" width="w-80" :defaultOpen="true" storeKey="sidebarOpen" side="left">
-            <div class="p-6 space-y-5">
-                {{-- Status Toggle --}}
-                <div>
-                    <button type="button" wire:click="toggleDone" class="w-full text-left flex items-center justify-between py-2 px-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
-                        <div class="flex items-center gap-2">
-                            @if($issue->is_done)
-                                @svg('heroicon-s-check-circle', 'w-4 h-4 text-purple-500')
-                            @else
-                                <span class="w-4 h-4 rounded-full border-2 border-green-500 inline-block"></span>
-                            @endif
-                            <span class="text-sm text-gray-700">Status</span>
-                        </div>
-                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full {{ $issue->is_done ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700' }}">
-                            <span class="w-1.5 h-1.5 rounded-full {{ $issue->is_done ? 'bg-purple-500' : 'bg-green-500' }}"></span>
-                            {{ $issue->is_done ? 'Closed' : 'Open' }}
-                        </span>
-                    </button>
-                </div>
-
-                {{-- Story Points --}}
-                @if($issue->story_points)
-                    <div class="flex items-center justify-between py-2 px-3 rounded-md bg-gray-50 border border-gray-200">
-                        <span class="text-sm text-gray-700">Story Points</span>
-                        <span class="text-lg font-bold text-gray-900">{{ $issue->story_points->points() }} <span class="text-xs font-medium text-gray-500">{{ $issue->story_points->label() }}</span></span>
-                    </div>
-                @endif
-
-                {{-- DoD Progress --}}
-                @if($criteriaTotal > 0)
-                    <div class="py-2 px-3 rounded-md bg-gray-50 border border-gray-200">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-gray-700">DoD Progress</span>
-                            <span class="text-sm font-semibold {{ $criteriaDone === $criteriaTotal ? 'text-green-600' : 'text-gray-900' }}">{{ $criteriaDone }}/{{ $criteriaTotal }}</span>
-                        </div>
-                        <div class="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
-                            <div class="h-full rounded-full {{ $criteriaDone === $criteriaTotal ? 'bg-green-500' : 'bg-blue-500' }} transition-all"
-                                 style="width: {{ $criteriaTotal > 0 ? round($criteriaDone / $criteriaTotal * 100) : 0 }}%"></div>
-                        </div>
-                    </div>
-                @endif
-
-                {{-- Issue Info --}}
-                <div>
-                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Details</h3>
-                    <div class="space-y-2 text-sm">
-                        @php
-                            $priorityValue = $issue->priority instanceof \BackedEnum ? $issue->priority->value : $issue->priority;
-                        @endphp
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Priority</span>
-                            <span class="font-medium d-flex items-center gap-1 {{ $priorityValue === 'high' ? 'text-red-600' : 'text-gray-900' }}">
-                                @if($priorityValue === 'high') <span class="w-2 h-2 rounded-full bg-red-500"></span> @endif
-                                {{ ['low' => 'Low', 'normal' => 'Normal', 'high' => 'High'][$priorityValue] ?? $priorityValue }}
-                            </span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Board</span>
-                            <span class="font-medium text-gray-900">{{ $issue->board?->name ?? '-' }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Column</span>
-                            <span class="font-medium text-gray-900">{{ $issue->slot?->name ?? 'Backlog' }}</span>
-                        </div>
-                        @if($issue->userInCharge)
-                            <div class="flex justify-between">
-                                <span class="text-gray-500">Assignee</span>
-                                <span class="font-medium text-gray-900">{{ $issue->userInCharge->name }}</span>
-                            </div>
-                        @endif
-                        @if($issue->due_date)
-                            <div class="flex justify-between">
-                                <span class="text-gray-500">Due date</span>
-                                <span class="font-medium {{ $issue->due_date->isPast() && !$issue->is_done ? 'text-red-600' : 'text-gray-900' }}">
-                                    {{ $issue->due_date->format('d.m.Y') }}
-                                </span>
-                            </div>
-                        @endif
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Created</span>
-                            <span class="font-medium text-gray-900">{{ $issue->created_at->format('d.m.Y H:i') }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Author</span>
-                            <span class="font-medium text-gray-900">{{ $issue->createdBy?->name ?? 'Unknown' }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </x-ui-page-sidebar>
     </x-slot>
 
     <x-slot name="activity">
@@ -185,6 +104,10 @@
                                         <span class="font-medium text-gray-900">{{ $issue->story_points->points() }} SP</span>
                                     </span>
                                 @endif
+                                <span class="flex items-center gap-1.5" title="Erstellt">
+                                    @svg('heroicon-o-clock', 'w-4 h-4')
+                                    <span>{{ $issue->created_at->format('d.m.Y H:i') }}</span>
+                                </span>
                             </div>
 
                             {{-- Labels --}}

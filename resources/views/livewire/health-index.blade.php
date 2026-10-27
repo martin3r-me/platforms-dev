@@ -19,80 +19,28 @@
         <x-ui-page-actionbar :breadcrumbs="[
             ['label' => 'Dev', 'href' => route('dev.dashboard'), 'icon' => 'home'],
             ['label' => 'Health-Index'],
-        ]" />
-    </x-slot>
-
-    <x-slot name="sidebar">
-        <x-ui-page-sidebar title="Filter" icon="heroicon-o-funnel" width="w-72" :defaultOpen="true">
-            <div class="p-4 space-y-4 bg-[var(--ui-muted-5)]">
-                <section class="p-3 rounded-lg bg-white border border-[var(--ui-border)]/40 shadow-sm">
-                    <h3 class="text-[10px] font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-2">Über</h3>
-                    <p class="text-[11px] text-[var(--ui-secondary)] leading-relaxed m-0">
-                        Teamweite Health-Sicht aller Dev-Packages.
-                    </p>
-                    @if($lastTakenOn)
-                        <p class="text-[10px] text-[var(--ui-muted)] mt-1 m-0">Stand: {{ $lastTakenOn->format('d.m.Y') }}</p>
-                    @endif
-                </section>
-
-                <section class="p-3 rounded-lg bg-white border border-[var(--ui-border)]/40 shadow-sm">
-                    <h3 class="text-[10px] font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-2">Ampel</h3>
-                    <div class="space-y-1">
-                        <button wire:click="$set('colorFilter', 'all')"
-                                class="w-full flex items-center justify-between px-2 py-1.5 rounded text-[12px] transition-colors {{ $colorFilter === 'all' ? 'bg-[var(--ui-secondary)] text-white' : 'text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
-                            <span>Alle</span>
-                            <span class="tabular-nums opacity-70 text-[11px]">{{ array_sum($byColor) }}</span>
-                        </button>
-                        @foreach(['red', 'yellow', 'green', 'gray'] as $c)
-                            @php $t = $tone($c); @endphp
-                            <button wire:click="$set('colorFilter', '{{ $c }}')"
-                                    class="w-full flex items-center justify-between px-2 py-1.5 rounded text-[12px] transition-colors {{ $colorFilter === $c ? $t['bg'].' '.$t['fg'].' border '.$t['border'] : 'text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
-                                <span class="inline-flex items-center gap-2">
-                                    <span class="w-2 h-2 rounded-full {{ $t['dot'] }}"></span>
-                                    <span>{{ $t['label'] }}</span>
-                                </span>
-                                <span class="tabular-nums opacity-70 text-[11px]">{{ $byColor[$c] ?? 0 }}</span>
-                            </button>
-                        @endforeach
-                    </div>
-                </section>
-
-                <section class="p-3 rounded-lg bg-white border border-[var(--ui-border)]/40 shadow-sm">
-                    <h3 class="text-[10px] font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-2">Schwächste Achse</h3>
-                    <div class="space-y-1">
-                        <button wire:click="$set('axisFilter', 'all')"
-                                class="w-full text-left px-2 py-1 rounded text-[11px] transition-colors {{ $axisFilter === 'all' ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
-                            Alle
-                        </button>
-                        @foreach($axisLabels as $axisKey => $axisName)
-                            <button wire:click="$set('axisFilter', '{{ $axisKey }}')"
-                                    class="w-full flex items-center justify-between px-2 py-1 rounded text-[11px] transition-colors {{ $axisFilter === $axisKey ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
-                                <span>{{ $axisName }}</span>
-                                <span class="tabular-nums opacity-60">{{ $byAxis[$axisKey] ?? 0 }}</span>
-                            </button>
-                        @endforeach
-                    </div>
-                </section>
-
-                <section class="p-3 rounded-lg bg-white border border-[var(--ui-border)]/40 shadow-sm">
-                    <h3 class="text-[10px] font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-2">Sortierung</h3>
-                    <div class="space-y-1">
-                        @foreach([
-                            'worst' => 'Schlimmste zuerst',
-                            'best' => 'Beste zuerst',
-                            'confidence' => 'Geringste Confidence zuerst',
-                            'movement' => 'Letzte Bewegung zuerst',
-                            'name' => 'Name (A→Z)',
-                        ] as $key => $label)
-                            <button wire:click="$set('sort', '{{ $key }}')"
-                                    class="w-full text-left px-2 py-1 rounded text-[11px] transition-colors {{ $sort === $key ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
-                                {{ $label }}
-                            </button>
-                        @endforeach
-                    </div>
-                </section>
-            </div>
-        </x-ui-page-sidebar>
+        ]">
+            <x-slot name="left">
+                @php $selectCls = 'h-7 max-w-[11rem] rounded-md border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] text-xs text-[color:var(--nx-text)] pl-2 pr-7 py-0 focus:ring-0'; @endphp
+                <select wire:model.live="axisFilter" class="{{ $selectCls }}" title="Schwächste Achse">
+                    <option value="all">Alle Achsen</option>
+                    @foreach($axisLabels as $axisKey => $axisName)
+                        <option value="{{ $axisKey }}">{{ $axisName }} ({{ $byAxis[$axisKey] ?? 0 }})</option>
+                    @endforeach
+                </select>
+                <select wire:model.live="sort" class="{{ $selectCls }} hidden sm:block" title="Sortierung">
+                    @foreach([
+                        'worst' => 'Schlimmste zuerst',
+                        'best' => 'Beste zuerst',
+                        'confidence' => 'Geringste Confidence',
+                        'movement' => 'Letzte Bewegung',
+                        'name' => 'Name (A→Z)',
+                    ] as $key => $label)
+                        <option value="{{ $key }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </x-slot>
+        </x-ui-page-actionbar>
     </x-slot>
 
     <x-slot name="activity">
@@ -178,7 +126,7 @@
 
     <div class="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
         <div class="px-4 pt-3 pb-3 border-b border-[var(--ui-border)]/40 bg-white">
-            <div class="flex items-start justify-between gap-6 mb-3">
+            <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 mb-3">
                 <div class="min-w-0">
                     <h1 class="text-base font-semibold text-[var(--ui-secondary)] truncate m-0 leading-tight inline-flex items-center gap-2">
                         @svg('heroicon-o-heart', 'w-4 h-4 text-rose-500')
@@ -193,16 +141,19 @@
                             @case('name') Name @break
                             @default schwächster zuerst
                         @endswitch
+                        @if($lastTakenOn) · Stand {{ $lastTakenOn->format('d.m.Y') }} @endif
                     </p>
                 </div>
-                <div class="flex items-center gap-4 flex-shrink-0 text-[11px]">
+                {{-- Ampel-Legende = Filter: Klick filtert, erneuter Klick hebt auf --}}
+                <div class="flex flex-wrap items-center gap-1 flex-shrink-0 text-[11px]">
                     @foreach(['red' => 'Brennt', 'yellow' => 'Achtung', 'green' => 'Stabil', 'gray' => 'Keine Daten'] as $c => $label)
-                        @php $t = $tone($c); @endphp
-                        <span class="inline-flex items-center gap-1.5">
+                        @php $t = $tone($c); $isActive = $colorFilter === $c; @endphp
+                        <button type="button" wire:click="$set('colorFilter', '{{ $isActive ? 'all' : $c }}')"
+                                class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border transition-colors {{ $isActive ? $t['bg'].' '.$t['border'] : 'border-transparent hover:bg-[var(--ui-muted-5)]' }}">
                             <span class="w-1.5 h-1.5 rounded-full {{ $t['dot'] }}"></span>
                             <span class="font-semibold tabular-nums {{ $byColor[$c] > 0 ? $t['fg'] : 'text-[var(--ui-muted)]' }}">{{ $byColor[$c] }}</span>
                             <span class="text-[var(--ui-muted)]">{{ $label }}</span>
-                        </span>
+                        </button>
                     @endforeach
                 </div>
             </div>

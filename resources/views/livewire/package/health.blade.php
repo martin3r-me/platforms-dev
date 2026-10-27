@@ -59,94 +59,22 @@
             ['label' => $package->name, 'href' => route('dev.packages.show', $package)],
             ['label' => 'Health'],
         ]">
+            <x-slot name="left">
+                {{-- Trend-Zeitraum (vorher in der Sidebar) --}}
+                <div class="inline-flex rounded-md border border-[var(--ui-border)] overflow-hidden" title="Trend-Zeitraum">
+                    @foreach([7, 30, 90, 180] as $i => $opt)
+                        <button type="button" wire:click="setTrendDays({{ $opt }})"
+                                class="px-2 h-7 text-[11px] font-medium transition-colors {{ $i > 0 ? 'border-l border-[var(--ui-border)]' : '' }} {{ $trendDays === $opt ? 'bg-indigo-600 text-white' : 'bg-transparent text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
+                            {{ $opt }}d
+                        </button>
+                    @endforeach
+                </div>
+            </x-slot>
             <x-ui-button variant="secondary" size="sm" wire:click="refreshSnapshot" title="Snapshot jetzt neu rechnen">
                 @svg('heroicon-o-arrow-path', 'w-4 h-4')
                 <span>Neu rechnen</span>
             </x-ui-button>
-            <a href="{{ route('dev.packages.show', $package) }}" wire:navigate
-               class="inline-flex items-center gap-1.5 px-3 h-7 rounded-md text-[11px] text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)] transition-colors">
-                @svg('heroicon-o-arrow-uturn-left', 'w-3.5 h-3.5')
-                <span>Zurueck zum Package</span>
-            </a>
         </x-ui-page-actionbar>
-    </x-slot>
-
-    <x-slot name="sidebar">
-        <x-ui-page-sidebar title="Übersicht" icon="heroicon-o-information-circle" width="w-72" :minWidth="240" :maxWidth="380" :defaultOpen="true" storeKey="sidebarOpen" side="left">
-            <div class="p-4 space-y-5">
-
-                @if($latest)
-                    <section class="space-y-1.5">
-                        <div class="text-[10px] uppercase tracking-wider text-[var(--ui-muted)] font-semibold">Snapshot</div>
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-[var(--ui-muted)]">Stand</span>
-                            <span class="text-[var(--ui-secondary)] font-medium tabular-nums">{{ $latest->taken_on?->format('d.m.Y') }}</span>
-                        </div>
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-[var(--ui-muted)]">Trigger</span>
-                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-[var(--ui-muted-5)] text-[var(--ui-secondary)] uppercase tracking-wider">{{ $latest->trigger }}</span>
-                        </div>
-                        @if($latest->last_movement_at)
-                            <div class="flex items-center justify-between text-xs">
-                                <span class="text-[var(--ui-muted)]">Letzte Bewegung</span>
-                                <span class="text-[var(--ui-secondary)]" title="{{ $latest->last_movement_at->format('d.m.Y H:i') }}">{{ $latest->last_movement_at->diffForHumans(short: true) }}</span>
-                            </div>
-                        @endif
-                    </section>
-                @endif
-
-                <section class="space-y-2">
-                    <div class="text-[10px] uppercase tracking-wider text-[var(--ui-muted)] font-semibold">Trend-Zeitraum</div>
-                    <div class="inline-flex rounded-md border border-[var(--ui-border)] overflow-hidden w-full">
-                        @foreach([7, 30, 90, 180] as $i => $opt)
-                            <button type="button" wire:click="setTrendDays({{ $opt }})"
-                                    class="flex-1 px-2 h-8 text-[11px] font-medium transition-colors {{ $i > 0 ? 'border-l border-[var(--ui-border)]' : '' }} {{ $trendDays === $opt ? 'bg-indigo-600 text-white' : 'bg-transparent text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
-                                {{ $opt }}d
-                            </button>
-                        @endforeach
-                    </div>
-                </section>
-
-                @if($latest)
-                    <section class="space-y-2">
-                        <div class="text-[10px] uppercase tracking-wider text-[var(--ui-muted)] font-semibold">Datenpflege</div>
-                        <div class="rounded-lg p-3 {{ $confTone['bg'] }} {{ $confTone['border'] }} border">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-[11px] {{ $confTone['fg'] }} font-medium uppercase tracking-wider">Confidence</span>
-                                <span class="text-lg font-bold tabular-nums {{ $confTone['fg'] }}">{{ $latest->confidence_score }}%</span>
-                            </div>
-                            <div class="h-1.5 w-full bg-white/60 rounded-full overflow-hidden">
-                                <div class="h-full {{ $confTone['fill'] }}" style="width: {{ $latest->confidence_score }}%"></div>
-                            </div>
-                        </div>
-                        @if(!empty($missingLayers))
-                            <ul class="space-y-1 pt-1">
-                                @foreach($missingLayers as $m)
-                                    <li class="flex items-center gap-2 text-[11px] text-[var(--ui-muted)]">
-                                        @svg('heroicon-o-x-circle', 'w-3.5 h-3.5 text-rose-400')
-                                        <span>{{ $missingLabel[$m] ?? $m }}</span>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @else
-                            <div class="flex items-center gap-2 text-[11px] text-emerald-700">
-                                @svg('heroicon-o-check-circle', 'w-3.5 h-3.5')
-                                <span>Alle Datenebenen gepflegt</span>
-                            </div>
-                        @endif
-                    </section>
-                @endif
-
-                <section class="space-y-2">
-                    <div class="text-[10px] uppercase tracking-wider text-[var(--ui-muted)] font-semibold">Direkt zu</div>
-                    <a href="{{ route('dev.packages.show', $package) }}" wire:navigate
-                       class="flex items-center gap-2 px-2.5 py-1.5 rounded text-[12px] text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)] transition-colors">
-                        @svg('heroicon-o-code-bracket', 'w-4 h-4 text-[var(--ui-muted)]')
-                        <span>Package-Übersicht</span>
-                    </a>
-                </section>
-            </div>
-        </x-ui-page-sidebar>
     </x-slot>
 
     <x-slot name="activity">
@@ -206,6 +134,29 @@
                 </x-ui-button>
             </div>
         @else
+
+        {{-- Snapshot & Datenpflege (vorher in der Sidebar) --}}
+        <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[var(--ui-muted)]">
+            <span>Stand <span class="font-medium text-[var(--ui-secondary)] tabular-nums">{{ $latest->taken_on?->format('d.m.Y') }}</span></span>
+            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-white border border-[var(--ui-border)] text-[var(--ui-secondary)] uppercase tracking-wider">{{ $latest->trigger }}</span>
+            @if($latest->last_movement_at)
+                <span title="{{ $latest->last_movement_at->format('d.m.Y H:i') }}">Letzte Bewegung <span class="text-[var(--ui-secondary)]">{{ $latest->last_movement_at->diffForHumans(short: true) }}</span></span>
+            @endif
+            <span class="inline-flex items-center gap-2 px-2 py-0.5 rounded-md border {{ $confTone['bg'] }} {{ $confTone['border'] }}">
+                <span class="text-[10px] uppercase tracking-wider font-medium {{ $confTone['fg'] }}">Confidence</span>
+                <span class="w-16 h-1.5 bg-white/70 rounded-full overflow-hidden"><span class="block h-full {{ $confTone['fill'] }}" style="width: {{ $latest->confidence_score }}%"></span></span>
+                <span class="font-bold tabular-nums {{ $confTone['fg'] }}">{{ $latest->confidence_score }}%</span>
+            </span>
+            @if(!empty($missingLayers))
+                <span class="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+                    @foreach($missingLayers as $m)
+                        <span class="inline-flex items-center gap-1">@svg('heroicon-o-x-circle', 'w-3.5 h-3.5 text-rose-400'){{ $missingLabel[$m] ?? $m }}</span>
+                    @endforeach
+                </span>
+            @else
+                <span class="inline-flex items-center gap-1 text-emerald-700">@svg('heroicon-o-check-circle', 'w-3.5 h-3.5') Alle Datenebenen gepflegt</span>
+            @endif
+        </div>
 
         {{-- HERO --}}
         <section class="rounded-2xl border border-[var(--ui-border)] bg-white overflow-hidden shadow-sm">

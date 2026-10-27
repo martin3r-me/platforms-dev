@@ -51,6 +51,13 @@
                         @endforeach
                     </div>
                 </div>
+                {{-- Erledigte ein-/ausblenden (vorher in der Sidebar) --}}
+                <button type="button" wire:click="toggleShowDone"
+                        class="inline-flex items-center gap-1.5 px-3 py-[5px] text-xs font-medium rounded-md border transition-colors {{ $showDone ? 'text-purple-700 bg-purple-50 border-purple-200' : 'text-gray-600 border-gray-300 hover:bg-gray-50' }}"
+                        title="{{ $showDone ? 'Geschlossene Issues ausblenden' : 'Geschlossene Issues anzeigen' }}">
+                    @svg($showDone ? 'heroicon-o-eye' : 'heroicon-o-eye-slash', 'w-3.5 h-3.5')
+                    <span class="hidden sm:inline">Closed</span>
+                </button>
             </x-slot>
             {{-- Board Actions --}}
             <div x-data="{ open: false }" class="relative inline-flex">
@@ -98,101 +105,6 @@
         </x-ui-page-actionbar>
     </x-slot>
 
-    <x-slot name="sidebar">
-        <x-ui-page-sidebar title="Board" width="w-80" :defaultOpen="true" side="left">
-            <div class="p-5 space-y-6">
-                {{-- Board-Info --}}
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-900 mb-1">{{ $board->name }}</h3>
-                    <div class="text-xs text-gray-500 leading-relaxed">{{ $board->description ?? 'No description' }}</div>
-                </div>
-
-                {{-- Ansicht --}}
-                <div class="pt-4 border-t border-gray-200">
-                    <label class="flex items-center gap-2.5 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            wire:click="toggleShowDone"
-                            @if($showDone) checked @endif
-                            class="w-3.5 h-3.5 rounded border-gray-300 text-[#238636] focus:ring-[#238636] focus:ring-offset-0"
-                        >
-                        <span class="text-xs text-gray-700">Show closed issues</span>
-                    </label>
-                </div>
-
-                {{-- Statistiken --}}
-                <div class="pt-4 border-t border-gray-200">
-                    <h3 class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Stats</h3>
-                    @php
-                        $statsOpen = $groups->filter(fn($g) => !($g->isDoneGroup ?? false))->sum(fn($g) => $g->tasks->count());
-                        $statsTotal = $groups->flatMap(fn($g) => $g->tasks)->count();
-                        $statsDone = $groups->filter(fn($g) => $g->isDoneGroup ?? false)->sum(fn($g) => $g->tasks->count());
-                        $statsHigh = $groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => ($t->priority instanceof \BackedEnum ? $t->priority->value : $t->priority) === 'high')->count();
-                        $statsOverdue = $groups->flatMap(fn($g) => $g->tasks)->filter(fn($t) => $t->due_date && $t->due_date->isPast() && !$t->is_done)->count();
-                    @endphp
-                    <div class="space-y-2">
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-gray-500">Open</span>
-                            <span class="font-medium text-gray-900 tabular-nums">{{ $statsOpen }}</span>
-                        </div>
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-gray-500">Closed</span>
-                            <span class="font-medium text-green-600 tabular-nums">{{ $statsDone }}</span>
-                        </div>
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-gray-500">Total</span>
-                            <span class="font-medium text-gray-900 tabular-nums">{{ $statsTotal }}</span>
-                        </div>
-                        @if($statsHigh > 0)
-                            <div class="flex items-center justify-between text-xs">
-                                <span class="text-gray-500">High priority</span>
-                                <span class="font-medium text-red-600 tabular-nums">{{ $statsHigh }}</span>
-                            </div>
-                        @endif
-                        @if($statsOverdue > 0)
-                            <div class="flex items-center justify-between text-xs">
-                                <span class="text-gray-500">Overdue</span>
-                                <span class="font-medium text-red-600 tabular-nums">{{ $statsOverdue }}</span>
-                            </div>
-                        @endif
-                    </div>
-
-                    {{-- Progress bar --}}
-                    @if($statsTotal > 0)
-                        <div class="mt-4">
-                            <div class="flex items-center justify-between mb-1.5">
-                                <span class="text-[11px] text-gray-500">Progress</span>
-                                <span class="text-[11px] font-medium text-gray-700 tabular-nums">{{ $statsTotal > 0 ? round($statsDone / $statsTotal * 100) : 0 }}%</span>
-                            </div>
-                            <div class="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
-                                <div class="h-full rounded-full bg-[#238636] transition-all" style="width: {{ $statsTotal > 0 ? round($statsDone / $statsTotal * 100) : 0 }}%"></div>
-                            </div>
-                        </div>
-                    @endif
-                </div>
-
-                {{-- Erledigte Issues --}}
-                @php $completedIssues = $groups->filter(fn($g) => $g->isDoneGroup ?? false)->flatMap(fn($g) => $g->tasks); @endphp
-                @if($completedIssues->count() > 0)
-                    <div class="pt-4 border-t border-gray-200">
-                        <h4 class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Recently closed</h4>
-                        <div class="space-y-1 max-h-48 overflow-y-auto">
-                            @foreach($completedIssues->take(8) as $issue)
-                                <a href="{{ route('dev.packages.issues.show', [$package, $issue]) }}" class="d-flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-gray-50 transition" wire:navigate>
-                                    <svg class="w-3.5 h-3.5 text-purple-500 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M11.28 6.78a.75.75 0 0 0-1.06-1.06L7.25 8.69 5.78 7.22a.75.75 0 0 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0ZM16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0Zm-1.5 0a6.5 6.5 0 1 0-13 0 6.5 6.5 0 0 0 13 0Z"/></svg>
-                                    <span class="truncate text-gray-500 line-through">{{ $issue->title }}</span>
-                                </a>
-                            @endforeach
-                            @if($completedIssues->count() > 8)
-                                <div class="text-[11px] text-gray-400 text-center py-1">+{{ $completedIssues->count() - 8 }} more</div>
-                            @endif
-                        </div>
-                    </div>
-                @endif
-            </div>
-        </x-ui-page-sidebar>
-    </x-slot>
-
     <x-slot name="activity">
         <x-ui-page-sidebar title="Activity" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
             <div class="p-5">
@@ -214,7 +126,39 @@
         </x-ui-page-sidebar>
     </x-slot>
 
+    @php
+        $allIssues = $groups->flatMap(fn($g) => $g->tasks);
+        $statsDone = $groups->filter(fn($g) => $g->isDoneGroup ?? false)->sum(fn($g) => $g->tasks->count());
+        $statsOpen = $groups->filter(fn($g) => !($g->isDoneGroup ?? false))->sum(fn($g) => $g->tasks->count());
+        $statsTotal = $allIssues->count();
+        $statsHigh = $allIssues->filter(fn($t) => ($t->priority instanceof \BackedEnum ? $t->priority->value : $t->priority) === 'high')->count();
+        $statsOverdue = $allIssues->filter(fn($t) => $t->due_date && $t->due_date->isPast() && !$t->is_done)->count();
+        $statsPct = $statsTotal > 0 ? round($statsDone / $statsTotal * 100) : 0;
+    @endphp
+    <div class="flex-1 min-w-0 min-h-0 flex flex-col">
+    {{-- Kennzahlen (vorher in der Sidebar) --}}
+    <div class="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1.5 border-b border-gray-200 bg-white text-xs text-gray-500">
+        <span><span class="font-medium text-gray-900 tabular-nums">{{ $statsOpen }}</span> open</span>
+        <span><span class="font-medium text-green-600 tabular-nums">{{ $statsDone }}</span> closed</span>
+        @if($statsHigh > 0)
+            <span><span class="font-medium text-red-600 tabular-nums">{{ $statsHigh }}</span> high priority</span>
+        @endif
+        @if($statsOverdue > 0)
+            <span><span class="font-medium text-red-600 tabular-nums">{{ $statsOverdue }}</span> overdue</span>
+        @endif
+        @if($statsTotal > 0)
+            <span class="inline-flex items-center gap-2">
+                <span class="w-20 h-1.5 rounded-full bg-gray-100 overflow-hidden"><span class="block h-full rounded-full bg-[#238636]" style="width: {{ $statsPct }}%"></span></span>
+                <span class="tabular-nums">{{ $statsPct }}%</span>
+            </span>
+        @endif
+        @if($board->description)
+            <span class="hidden md:inline truncate min-w-0 flex-1 text-right text-gray-400" title="{{ $board->description }}">{{ $board->description }}</span>
+        @endif
+    </div>
+
     <!-- Kanban-Board -->
+    <div class="flex-1 min-h-0">
     <x-ui-kanban-container class="h-full" sortable="updateSlotOrder" sortable-group="updateIssueOrder">
         @foreach($groups->filter(fn ($g) => !($g->isDoneGroup ?? false)) as $column)
             <x-ui-kanban-column :sortable-id="$column->id" :scrollable="true">
@@ -257,6 +201,8 @@
             @endif
         @endif
     </x-ui-kanban-container>
+    </div>
+    </div>
 
     {{-- Board Settings Modal --}}
     @if($showBoardSettings)

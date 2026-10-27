@@ -70,76 +70,6 @@
         </x-ui-page-actionbar>
     </x-slot>
 
-    <x-slot name="sidebar">
-        <x-ui-page-sidebar title="Uebersicht" width="w-80" :defaultOpen="true" storeKey="sidebarOpen" side="left">
-            <div class="p-5 space-y-5">
-                {{-- Package Header --}}
-                <div class="d-flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-md bg-gray-100 d-flex items-center justify-center flex-shrink-0 border border-gray-200">
-                        @svg(app('safe-svg')->resolve($package->icon) ?? 'heroicon-o-cube', 'w-4 h-4 text-gray-600')
-                    </div>
-                    <div class="min-w-0">
-                        <h3 class="text-xs font-semibold text-gray-900">{{ $package->name }}</h3>
-                        <span class="inline-flex items-center gap-1.5 text-[11px] {{ $package->status === 'active' ? 'text-green-700' : 'text-gray-500' }}">
-                            <span class="w-1.5 h-1.5 rounded-full {{ $package->status === 'active' ? 'bg-[#238636]' : 'bg-gray-400' }}"></span>
-                            {{ $package->status === 'active' ? 'Active' : 'Archived' }}
-                        </span>
-                    </div>
-                </div>
-
-                @if($package->description)
-                    <p class="text-xs text-gray-500 leading-relaxed">{{ $package->description }}</p>
-                @endif
-
-                {{-- Health Progress Bar --}}
-                @php
-                    $totalIssues = $totalOpen + $totalDone;
-                    $progressPct = $totalIssues > 0 ? round($totalDone / $totalIssues * 100) : 0;
-                @endphp
-                @if($totalIssues > 0)
-                    <div class="px-3 py-2.5 rounded-md bg-gray-50 border border-gray-200">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-[11px] font-medium text-gray-600">Progress</span>
-                            <span class="text-[11px] font-semibold tabular-nums {{ $progressPct === 100 ? 'text-[#238636]' : 'text-gray-900' }}">{{ $totalDone }}/{{ $totalIssues }}</span>
-                        </div>
-                        <div class="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
-                            <div class="h-full rounded-full bg-[#238636] transition-all" style="width: {{ $progressPct }}%"></div>
-                        </div>
-                    </div>
-                @endif
-
-                {{-- Package Info --}}
-                <div>
-                    <h3 class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2.5">About</h3>
-                    <div class="space-y-2.5 text-xs">
-                        @if($package->userInCharge)
-                            <div class="flex justify-between">
-                                <span class="text-gray-500">Owner</span>
-                                <span class="font-medium text-gray-900">{{ $package->userInCharge->name }}</span>
-                            </div>
-                        @endif
-                        @if($package->github_repo_full_name)
-                            <div class="flex justify-between">
-                                <span class="text-gray-500">Repository</span>
-                                <code class="text-[11px] font-mono text-gray-700 truncate max-w-[10rem]">{{ $package->github_repo_full_name }}</code>
-                            </div>
-                        @endif
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Created</span>
-                            <span class="font-medium text-gray-900 tabular-nums">{{ $package->created_at->format('d.m.Y') }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Errors</span>
-                            <span class="font-medium {{ $errorSettingsEnabled ? 'text-[#238636]' : 'text-gray-400' }}">
-                                {{ $errorSettingsEnabled ? 'Active' : 'Inactive' }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </x-ui-page-sidebar>
-    </x-slot>
-
     <x-slot name="activity">
         <x-ui-page-sidebar title="Aktivitaeten" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
             <div class="p-5">
@@ -298,6 +228,36 @@
                 @if($package->description)
                     <p class="text-sm text-gray-600 mb-4 max-w-2xl">{{ $package->description }}</p>
                 @endif
+
+                {{-- Kennzahlen (vorher in der Sidebar) --}}
+                @php
+                    $totalIssues = $totalOpen + $totalDone;
+                    $progressPct = $totalIssues > 0 ? round($totalDone / $totalIssues * 100) : 0;
+                @endphp
+                <div class="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 text-xs text-gray-500">
+                    @if($totalIssues > 0)
+                        <span class="inline-flex items-center gap-2" title="Erledigte Issues">
+                            <span class="w-24 h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                                <span class="block h-full rounded-full bg-[#238636]" style="width: {{ $progressPct }}%"></span>
+                            </span>
+                            <span class="tabular-nums font-medium {{ $progressPct === 100 ? 'text-[#238636]' : 'text-gray-700' }}">{{ $totalDone }}/{{ $totalIssues }}</span>
+                        </span>
+                    @endif
+                    @if($package->github_repo_full_name)
+                        <span class="inline-flex items-center gap-1.5 min-w-0">
+                            @svg('heroicon-o-code-bracket', 'w-3.5 h-3.5 flex-shrink-0')
+                            <code class="font-mono text-[11px] text-gray-700 truncate">{{ $package->github_repo_full_name }}</code>
+                        </span>
+                    @endif
+                    <span class="inline-flex items-center gap-1.5">
+                        @svg('heroicon-o-calendar', 'w-3.5 h-3.5')
+                        <span class="tabular-nums">seit {{ $package->created_at->format('d.m.Y') }}</span>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 {{ $errorSettingsEnabled ? 'text-[#238636]' : '' }}">
+                        @svg('heroicon-o-bug-ant', 'w-3.5 h-3.5')
+                        <span>Error Tracking {{ $errorSettingsEnabled ? 'aktiv' : 'inaktiv' }}</span>
+                    </span>
+                </div>
 
                 {{-- GitHub-style Tab Navigation --}}
                 <div class="border-b border-gray-200 -mx-6 px-6">
