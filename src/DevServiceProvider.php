@@ -50,6 +50,7 @@ class DevServiceProvider extends ServiceProvider
             PlatformCore::registerModule([
                 'key'        => 'dev',
                 'title'      => 'Dev',
+                'group'      => 'dev',
                 'routing'    => config('dev.routing'),
                 'guard'      => config('dev.guard'),
                 'navigation' => config('dev.navigation'),
